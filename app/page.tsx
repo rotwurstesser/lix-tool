@@ -18,7 +18,9 @@ export default function Home() {
   const [generatedText, setGeneratedText] = useState('');
   const [attempts, setAttempts] = useState<any[]>([]);
   const [warning, setWarning] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Waiting for Claude...');
   const [lastParams, setLastParams] = useState<GenerationParams | null>(null);
 
   const handleGenerate = async (params: GenerationParams) => {
@@ -26,6 +28,8 @@ export default function Home() {
     setGeneratedText('');
     setAttempts([]);
     setWarning(undefined);
+    setError(undefined);
+    setLoadingMessage('Waiting for Claude...');
     setLastParams(params);
 
     try {
@@ -64,6 +68,13 @@ export default function Home() {
 
             if (data.type === 'attempt') {
               setAttempts(prev => [...prev, data.data]);
+              const attemptNum = data.data.attempt;
+              if (data.data.isSuccess) {
+                setLoadingMessage(`Attempt ${attemptNum} succeeded!`);
+              } else {
+                const failReason = data.data.errors.length > 0 ? data.data.errors[0] : 'validation failed';
+                setLoadingMessage(`Attempt ${attemptNum} failed: ${failReason}, retrying...`);
+              }
             } else if (data.type === 'success') {
               setGeneratedText(data.text);
               if (data.attempts) setAttempts(data.attempts);
@@ -72,6 +83,7 @@ export default function Home() {
               if (data.attempts) setAttempts(data.attempts);
               setWarning(data.warning);
             } else if (data.type === 'error') {
+              setError(data.error);
               throw new Error(data.error);
             }
           } catch (e) {
@@ -79,17 +91,12 @@ export default function Home() {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Failed to generate text. Please try again.');
+      const errorMsg = error.message || 'Failed to generate text. Please try again.';
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleRetry = () => {
-    if (lastParams) {
-      handleGenerate(lastParams);
     }
   };
 
@@ -119,7 +126,29 @@ export default function Home() {
           </div>
         </div>
 
-        <GeneratorForm onSubmit={handleGenerate} isLoading={isLoading} />
+        <GeneratorForm onSubmit={handleGenerate} isLoading={isLoading} loadingMessage={loadingMessage} />
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 shadow-md">
+            <div className="flex items-start gap-3">
+              <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-red-900 mb-1">Generation Failed</h3>
+                <p className="text-red-700">{error}</p>
+                {lastParams && (
+                  <button
+                    onClick={() => handleGenerate(lastParams)}
+                    className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                  >
+                    Try Again
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {generatedText && lastParams && (
           <ResultDisplay

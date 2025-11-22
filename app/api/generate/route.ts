@@ -8,6 +8,15 @@ const anthropic = new Anthropic({
 
 export async function POST(request: Request) {
   try {
+    // Check API key first to prevent build issues
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.LIX_ANTHROPIC_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'API key not configured. Please set ANTHROPIC_API_KEY or LIX_ANTHROPIC_KEY environment variable.' },
+        { status: 500 }
+      );
+    }
+
     const { topic, lix, sentences, language, model, targetWords, targetLongWords } = await request.json();
 
     if (!topic || !lix || !sentences || !language || targetWords === undefined || targetLongWords === undefined) {
@@ -63,12 +72,29 @@ Your generated text here.
             attempts++;
             console.log(`Attempt ${attempts} of ${maxAttempts}`);
 
-            const message = await anthropic.messages.create({
-              model: selectedModel,
-              max_tokens: 2000,
-              temperature: 0.3,
-              messages: messages,
-            });
+            let message;
+            try {
+              message = await anthropic.messages.create({
+                model: selectedModel,
+                max_tokens: 2000,
+                temperature: 0.3,
+                messages: messages,
+              });
+            } catch (apiError: any) {
+              // Handle specific Anthropic API errors
+              if (apiError.status === 401) {
+                sendUpdate({ type: 'error', error: 'Invalid API key. Please check your ANTHROPIC_API_KEY.' });
+              } else if (apiError.status === 429) {
+                sendUpdate({ type: 'error', error: 'Rate limit exceeded. Please try again in a few moments.' });
+              } else if (apiError.status === 529) {
+                sendUpdate({ type: 'error', error: 'Claude API is temporarily overloaded. Please try again in a moment.' });
+              } else {
+                const errorMsg = apiError?.error?.message || apiError.message || 'API request failed';
+                sendUpdate({ type: 'error', error: `API error: ${errorMsg}` });
+              }
+              controller.close();
+              return;
+            }
 
             const contentBlock = message.content[0];
             const rawText = contentBlock.type === 'text' ? contentBlock.text : '';
