@@ -121,7 +121,7 @@ export default function ResultDisplay({ text, targetLix, onRetry, attempts, warn
                             <line x1="15" y1="9" x2="9" y2="15"></line>
                             <line x1="9" y1="9" x2="15" y2="15"></line>
                           </svg>
-                          {err}
+                          {err} | LIX: {attempt.stats.score}
                         </div>
                       ))}
                     </div>
