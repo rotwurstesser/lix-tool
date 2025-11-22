@@ -7,25 +7,47 @@ const anthropic = new Anthropic({
 
 export async function POST(request: Request) {
   try {
-    const { topic, lix, sentences, language } = await request.json();
+    const { topic, lix, sentences, language, model, targetWords, targetLongWords } = await request.json();
 
-    if (!topic || !lix || !sentences || !language) {
+    if (!topic || !lix || !sentences || !language || targetWords === undefined || targetLongWords === undefined) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
       );
     }
 
-    const prompt = `Generate a text about "${topic}" in ${language}.
-The text must have exactly ${sentences} sentences.
-The text must have a LIX readability score of approximately ${lix}.
-LIX formula: (words / sentences) + (long_words * 100 / words).
-Long words are words with more than 6 letters.
-Do not include any introductory or concluding remarks, just the generated text.`;
+    const prompt = `You are an expert educational content creator for children.
+Your task is to write a text about "${topic}" in ${language} that mathematically conforms to a specific LIX readability score.
+
+TARGET METRICS:
+- Sentence Count: EXACTLY ${sentences}
+- Total Word Count: APPROXIMATELY ${targetWords}
+- Long Word Count (> 6 letters): EXACTLY ${targetLongWords}
+
+INSTRUCTIONS:
+1. Plan your text in a <thinking> block.
+2. List the specific words you will use that are longer than 6 letters. Ensure the count is EXACTLY ${targetLongWords}.
+3. Write the final text in a <text> block.
+4. Verify the sentence count is EXACTLY ${sentences}.
+
+WARNING: The "Long Word Count" is the most critical metric. You must count carefully.
+Definition: A "long word" is any word with strictly more than 6 characters (7 or more). Punctuation does not count as characters.
+
+Example format:
+<thinking>
+Plan: ...
+Long words to use (Target: 5): 1. example, 2. because, ...
+</thinking>
+<text>
+Your generated text here.
+</text>`;
+
+    const selectedModel = model || 'claude-opus-4-1-20250805';
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-latest',
-      max_tokens: 1024,
+      model: selectedModel,
+      max_tokens: 2000,
+      temperature: 0.3,
       messages: [
         {
           role: 'user',
@@ -36,7 +58,11 @@ Do not include any introductory or concluding remarks, just the generated text.`
 
     // Extract text content from the response
     const contentBlock = message.content[0];
-    const text = contentBlock.type === 'text' ? contentBlock.text : '';
+    const rawText = contentBlock.type === 'text' ? contentBlock.text : '';
+
+    // Parse out the content between <text> tags
+    const textMatch = rawText.match(/<text>([\s\S]*?)<\/text>/);
+    const text = textMatch ? textMatch[1].trim() : rawText.replace(/<thinking>[\s\S]*?<\/thinking>/, '').trim();
 
     return NextResponse.json({ text });
   } catch (error: any) {

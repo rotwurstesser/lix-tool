@@ -9,6 +9,9 @@ interface GenerationParams {
   lix: number;
   sentences: number;
   language: string;
+  model: string;
+  targetWords: number;
+  targetLongWords: number;
 }
 
 export default function Home() {
@@ -63,6 +66,19 @@ export default function Home() {
             Generate texts with specific readability scores for educational or testing purposes.
             Powered by Claude AI.
           </p>
+          <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 text-left max-w-3xl mx-auto">
+            <h3 className="font-semibold text-blue-900 mb-2">What is LIX?</h3>
+            <p className="text-sm text-blue-800 mb-3">
+              LIX (Läsbarhetsindex) is a readability index that indicates the difficulty of reading a text.
+              It is calculated as the sum of the average sentence length (words per sentence) and the percentage of long words (more than 6 letters).
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-blue-700">
+              <div><span className="font-bold">&lt; 30</span>: Very Easy (Children)</div>
+              <div><span className="font-bold">30 - 40</span>: Easy (Fiction)</div>
+              <div><span className="font-bold">40 - 50</span>: Medium (Newspaper)</div>
+              <div><span className="font-bold">&gt; 50</span>: Hard (Academic)</div>
+            </div>
+          </div>
         </div>
 
         <GeneratorForm onSubmit={handleGenerate} isLoading={isLoading} />
