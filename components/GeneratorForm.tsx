@@ -15,16 +15,44 @@ interface GeneratorFormProps {
   isLoading: boolean;
 }
 
+const CHILDREN_TOPICS = [
+  "The Little Lost Puppy", "A Day at the Zoo", "The Magic Treehouse", "My Best Friend", "The Flying Car",
+  "A Trip to the Moon", "The Secret Garden", "The Brave Knight", "The Friendly Dragon", "The Underwater City",
+  "The Talking Dog", "The Magical Forest", "The Big Red Balloon", "The School Play", "The Snowman's Wish",
+  "The Golden Key", "The Mystery Box", "The Time Machine", "The Robot Helper", "The Super Hero",
+  "The Haunted House", "The Pirate Ship", "The Treasure Map", "The Fairy Queen", "The Giant Beanstalk",
+  "The Magic Carpet", "The Enchanted Castle", "The Wishing Well", "The Invisible Boy", "The Flying Horse",
+  "The Rainbow Bridge", "The Starry Night", "The Sunny Day", "The Rainy Afternoon", "The Windy Morning",
+  "The Snowy Evening", "The Foggy Day", "The Stormy Night", "The Beautiful Butterfly", "The Busy Bee",
+  "The Lazy Cat", "The Playful Dog", "The Wise Owl", "The Clever Fox", "The Strong Bear",
+  "The Fast Cheetah", "The Slow Turtle", "The Big Elephant", "The Small Mouse", "The Tall Giraffe",
+  "The Happy Dolphin", "The Scary Shark", "The Colorful Fish", "The Singing Bird", "The Dancing Frog",
+  "The Jumping Kangaroo", "The Sleeping Lion", "The Hungry Wolf", "The Thirsty Camel", "The Cold Penguin",
+  "The Hot Desert", "The Deep Ocean", "The High Mountain", "The Green Forest", "The Blue Sky",
+  "The Bright Sun", "The White Moon", "The Twinkling Stars", "The Fluffy Clouds", "The Rolling Hills",
+  "The Flowing River", "The Calm Lake", "The Raging Sea", "The Sandy Beach", "The Rocky Shore",
+  "The Green Grass", "The Colorful Flowers", "The Tall Trees", "The Small Bushes", "The Singing Birds",
+  "The Buzzing Bees", "The Fluttering Butterflies", "The Crawling Ants", "The Jumping Grasshoppers", "The Slithering Snakes",
+  "The Hooting Owls", "The Howling Wolves", "The Roaring Lions", "The Trumpeting Elephants", "The Chattering Monkeys",
+  "The Squeaking Mice", "The Croaking Frogs", "The Quacking Ducks", "The Clucking Chickens", "The Mooing Cows",
+  "The Neighing Horses", "The Bleating Sheep", "The Oinking Pigs", "The Barking Dogs", "The Meowing Cats"
+];
+
 export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
   const [topic, setTopic] = useState('');
-  const [lix, setLix] = useState(40);
+  const [lix, setLix] = useState(25);
   const [sentences, setSentences] = useState(5);
-  const [language, setLanguage] = useState('English');
+  const [language, setLanguage] = useState('German');
   const [model, setModel] = useState('claude-opus-4-1-20250805');
+  const [placeholderTopic, setPlaceholderTopic] = useState('');
 
   // LIX Balancer State
   const [avgSentenceLength, setAvgSentenceLength] = useState(15);
   const [longWordPct, setLongWordPct] = useState(25);
+
+  useEffect(() => {
+    setPlaceholderTopic(CHILDREN_TOPICS[Math.floor(Math.random() * CHILDREN_TOPICS.length)]);
+  }, []);
 
   // Sync sliders when LIX changes
   useEffect(() => {
@@ -63,7 +91,7 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      topic,
+      topic: topic || placeholderTopic,
       lix,
       sentences,
       language,
@@ -101,9 +129,8 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
             id="topic"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            required
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            placeholder="e.g., Space Exploration"
+            placeholder={placeholderTopic}
           />
         </div>
 
@@ -117,8 +144,8 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
             onChange={(e) => setLanguage(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           >
-            <option value="English">English</option>
             <option value="German">German</option>
+            <option value="English">English</option>
             <option value="French">French</option>
             <option value="Italian">Italian</option>
           </select>
@@ -128,16 +155,38 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
           <label htmlFor="lix" className="block text-sm font-medium text-gray-700">
             Target LIX Score
           </label>
-          <input
-            type="number"
-            id="lix"
-            value={lix}
-            onChange={(e) => setLix(Number(e.target.value))}
-            min="10"
-            max="100"
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLix(Math.max(10, lix - 5))}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
+              title="Decrease by 5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14"></path>
+              </svg>
+            </button>
+            <input
+              type="number"
+              id="lix"
+              value={lix}
+              onChange={(e) => setLix(Number(e.target.value))}
+              min="10"
+              max="100"
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-center"
+            />
+            <button
+              type="button"
+              onClick={() => setLix(Math.min(100, lix + 5))}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
+              title="Increase by 5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14"></path>
+              </svg>
+            </button>
+          </div>
           <p className="text-xs text-gray-500">
             Lower = Easier (e.g. 30), Higher = Harder (e.g. 60)
           </p>
