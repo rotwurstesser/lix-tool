@@ -261,18 +261,48 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Calculation</p>
           <div className="flex items-center justify-center gap-2 text-sm font-mono">
             <div className="flex flex-col items-center">
-              <span className="text-blue-600 font-bold">{avgSentenceLength.toFixed(1)}</span>
-              <span className="text-[10px] text-gray-400">Avg Length</span>
+              <input
+                type="number"
+                value={avgSentenceLength.toFixed(1)}
+                onChange={(e) => {
+                  const newVal = parseFloat(e.target.value) || 0;
+                  const clampedVal = Math.max(5, Math.min(Math.min(lix, 40), newVal));
+                  handleLengthChange(clampedVal);
+                }}
+                step="0.1"
+                className="w-16 text-blue-600 font-bold text-center bg-transparent border-b-2 border-blue-300 focus:border-blue-500 focus:outline-none hover:border-blue-400 transition-colors"
+              />
+              <span className="text-[10px] text-gray-400 mt-1">Avg Length</span>
             </div>
             <span className="text-gray-400">+</span>
             <div className="flex flex-col items-center">
-              <span className="text-indigo-600 font-bold">{longWordPct.toFixed(1)}</span>
-              <span className="text-[10px] text-gray-400">Long Words %</span>
+              <input
+                type="number"
+                value={longWordPct.toFixed(1)}
+                onChange={(e) => {
+                  const newVal = parseFloat(e.target.value) || 0;
+                  const clampedVal = Math.max(0, Math.min(Math.max(0, lix - 5), newVal));
+                  handlePctChange(clampedVal);
+                }}
+                step="0.1"
+                className="w-16 text-indigo-600 font-bold text-center bg-transparent border-b-2 border-indigo-300 focus:border-indigo-500 focus:outline-none hover:border-indigo-400 transition-colors"
+              />
+              <span className="text-[10px] text-gray-400 mt-1">Long Words %</span>
             </div>
             <span className="text-gray-400">=</span>
             <div className="flex flex-col items-center">
-              <span className="text-gray-900 font-bold">{(avgSentenceLength + longWordPct).toFixed(1)}</span>
-              <span className="text-[10px] text-gray-400">LIX Score</span>
+              <input
+                type="number"
+                value={(avgSentenceLength + longWordPct).toFixed(1)}
+                onChange={(e) => {
+                  const newLix = parseFloat(e.target.value) || 0;
+                  const clampedLix = Math.max(10, Math.min(100, newLix));
+                  setLix(clampedLix);
+                }}
+                step="0.1"
+                className="w-16 text-gray-900 font-bold text-center bg-transparent border-b-2 border-gray-300 focus:border-gray-500 focus:outline-none hover:border-gray-400 transition-colors"
+              />
+              <span className="text-[10px] text-gray-400 mt-1">LIX Score</span>
             </div>
           </div>
         </div>
