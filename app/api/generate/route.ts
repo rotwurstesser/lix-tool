@@ -44,67 +44,112 @@ Your generated text here.
 </text>`;
 
     const selectedModel = model || 'claude-opus-4-1-20250805';
-    let messages: any[] = [{ role: 'user', content: initialPrompt }];
-    let attempts = 0;
-    const maxAttempts = 3;
 
-    while (attempts < maxAttempts) {
-      attempts++;
-      console.log(`Attempt ${attempts} of ${maxAttempts}`);
+    // Create a stream to send updates to the client
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        const sendUpdate = (data: any) => {
+          controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
+        };
 
-      const message = await anthropic.messages.create({
-        model: selectedModel,
-        max_tokens: 2000,
-        temperature: 0.3,
-        messages: messages,
-      });
+        let messages: any[] = [{ role: 'user', content: initialPrompt }];
+        let attempts = 0;
+        const maxAttempts = 3;
+        const attemptHistory: any[] = [];
 
-      const contentBlock = message.content[0];
-      const rawText = contentBlock.type === 'text' ? contentBlock.text : '';
+        try {
+          while (attempts < maxAttempts) {
+            attempts++;
+            console.log(`Attempt ${attempts} of ${maxAttempts}`);
 
-      // Parse out the content between <text> tags
-      const textMatch = rawText.match(/<text>([\s\S]*?)<\/text>/);
-      const text = textMatch ? textMatch[1].trim() : rawText.replace(/<thinking>[\s\S]*?<\/thinking>/, '').trim();
+            const message = await anthropic.messages.create({
+              model: selectedModel,
+              max_tokens: 2000,
+              temperature: 0.3,
+              messages: messages,
+            });
 
-      // Verify constraints
-      const stats = calculateLix(text);
-      const longWordDiff = stats.longWords - targetLongWords;
-      const sentenceDiff = stats.sentences - sentences;
+            const contentBlock = message.content[0];
+            const rawText = contentBlock.type === 'text' ? contentBlock.text : '';
 
-      // Tolerance: Exact for sentences, +/- 1 for long words (or 0 if user wants strict)
-      // User asked for "boundaries", let's be strict.
-      const isSentenceCorrect = stats.sentences === sentences;
-      const isLongWordsCorrect = stats.longWords === targetLongWords;
+            // Parse out the content between <text> tags
+            const textMatch = rawText.match(/<text>([\s\S]*?)<\/text>/);
+            const text = textMatch ? textMatch[1].trim() : rawText.replace(/<thinking>[\s\S]*?<\/thinking>/, '').trim();
 
-      if (isSentenceCorrect && isLongWordsCorrect) {
-        return NextResponse.json({ text });
+            // Verify constraints
+            const stats = calculateLix(text);
+            const isSentenceCorrect = stats.sentences === sentences;
+            const isLongWordsCorrect = stats.longWords === targetLongWords;
+
+            const attemptData = {
+              attempt: attempts,
+              text,
+              stats,
+              isSuccess: isSentenceCorrect && isLongWordsCorrect,
+              errors: [] as string[]
+            };
+
+            if (!isSentenceCorrect) {
+              attemptData.errors.push(`Sentence count: ${stats.sentences} (Target: ${sentences})`);
+            }
+            if (!isLongWordsCorrect) {
+              attemptData.errors.push(`Long word count: ${stats.longWords} (Target: ${targetLongWords})`);
+            }
+
+            attemptHistory.push(attemptData);
+
+            // Send update for this attempt
+            sendUpdate({ type: 'attempt', data: attemptData });
+
+            if (isSentenceCorrect && isLongWordsCorrect) {
+              sendUpdate({ type: 'success', text, attempts: attemptHistory });
+              controller.close();
+              return;
+            }
+
+            // If we're out of attempts
+            if (attempts === maxAttempts) {
+              console.warn('Failed to meet constraints after max attempts');
+              sendUpdate({
+                type: 'warning',
+                text,
+                attempts: attemptHistory,
+                warning: 'Failed to meet strict constraints'
+              });
+              controller.close();
+              return;
+            }
+
+            // Construct feedback message
+            let feedback = "Analysis of your previous attempt:\n";
+            if (!isSentenceCorrect) {
+              feedback += `- Sentence count was ${stats.sentences}, but I need EXACTLY ${sentences}.\n`;
+            }
+            if (!isLongWordsCorrect) {
+              feedback += `- Long word count was ${stats.longWords}, but I need EXACTLY ${targetLongWords}.\n`;
+            }
+            feedback += "Please rewrite the text to fix these errors. Maintain the other metrics if they were correct.";
+
+            // Add to history for next iteration
+            messages.push({ role: 'assistant', content: rawText });
+            messages.push({ role: 'user', content: feedback });
+          }
+        } catch (error: any) {
+          console.error('Stream error:', error);
+          const errorMessage = error?.error?.message || error.message || 'Failed to generate text';
+          sendUpdate({ type: 'error', error: errorMessage });
+          controller.close();
+        }
       }
+    });
 
-      // If we're out of attempts, return the best we have (or just the last one)
-      if (attempts === maxAttempts) {
-        console.warn('Failed to meet constraints after max attempts');
-        return NextResponse.json({ text });
-      }
-
-      // Construct feedback message
-      let feedback = "Analysis of your previous attempt:\n";
-      if (!isSentenceCorrect) {
-        feedback += `- Sentence count was ${stats.sentences}, but I need EXACTLY ${sentences}.\n`;
-      }
-      if (!isLongWordsCorrect) {
-        feedback += `- Long word count was ${stats.longWords}, but I need EXACTLY ${targetLongWords}.\n`;
-      }
-      feedback += "Please rewrite the text to fix these errors. Maintain the other metrics if they were correct.";
-
-      // Add to history for next iteration
-      messages.push({ role: 'assistant', content: rawText });
-      messages.push({ role: 'user', content: feedback });
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to generate text meeting constraints' },
-      { status: 500 }
-    );
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Transfer-Encoding': 'chunked',
+      },
+    });
 
   } catch (error: any) {
     console.error('Error generating text:', error);

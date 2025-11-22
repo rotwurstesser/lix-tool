@@ -41,7 +41,7 @@ const CHILDREN_TOPICS = [
 export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
   const [topic, setTopic] = useState('');
   const [lix, setLix] = useState(25);
-  const [sentences, setSentences] = useState(5);
+  const [sentences, setSentences] = useState(8);
   const [language, setLanguage] = useState('German');
   const [model, setModel] = useState('claude-opus-4-1-20250805');
   const [placeholderTopic, setPlaceholderTopic] = useState('');

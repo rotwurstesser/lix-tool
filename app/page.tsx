@@ -16,15 +16,17 @@ interface GenerationParams {
 
 export default function Home() {
   const [generatedText, setGeneratedText] = useState('');
+  const [attempts, setAttempts] = useState<any[]>([]);
+  const [warning, setWarning] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [lastParams, setLastParams] = useState<GenerationParams | null>(null);
 
   const handleGenerate = async (params: GenerationParams) => {
     setIsLoading(true);
-    setError(null);
-    setLastParams(params);
     setGeneratedText('');
+    setAttempts([]);
+    setWarning(undefined);
+    setLastParams(params);
 
     try {
       const response = await fetch('/api/generate', {
@@ -35,15 +37,51 @@ export default function Home() {
         body: JSON.stringify(params),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.error || 'Failed to generate text');
       }
 
-      setGeneratedText(data.text);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const data = JSON.parse(line);
+
+            if (data.type === 'attempt') {
+              setAttempts(prev => [...prev, data.data]);
+            } else if (data.type === 'success') {
+              setGeneratedText(data.text);
+              if (data.attempts) setAttempts(data.attempts);
+            } else if (data.type === 'warning') {
+              setGeneratedText(data.text);
+              if (data.attempts) setAttempts(data.attempts);
+              setWarning(data.warning);
+            } else if (data.type === 'error') {
+              throw new Error(data.error);
+            }
+          } catch (e) {
+            console.error('Error parsing stream chunk:', e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to generate text. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -83,17 +121,13 @@ export default function Home() {
 
         <GeneratorForm onSubmit={handleGenerate} isLoading={isLoading} />
 
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">
-            {error}
-          </div>
-        )}
-
         {generatedText && lastParams && (
           <ResultDisplay
             text={generatedText}
             targetLix={lastParams.lix}
-            onRetry={handleRetry}
+            onRetry={() => handleGenerate(lastParams)}
+            attempts={attempts}
+            warning={warning}
           />
         )}
       </div>
