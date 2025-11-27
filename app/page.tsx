@@ -84,10 +84,18 @@ export default function Home() {
               setWarning(data.warning);
             } else if (data.type === 'error') {
               setError(data.error);
-              throw new Error(data.error);
+              // Break out of the stream reading loop on error
+              reader.cancel();
+              return;
             }
           } catch (e) {
-            console.error('Error parsing stream chunk:', e);
+            // Only log JSON parsing errors, don't swallow intentional errors
+            if (e instanceof SyntaxError) {
+              console.error('Error parsing stream chunk:', e);
+            } else {
+              // Re-throw non-parsing errors
+              throw e;
+            }
           }
         }
       }
