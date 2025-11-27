@@ -26,31 +26,51 @@ export async function POST(request: Request) {
       );
     }
 
-    const initialPrompt = `You are an expert educational content creator for children.
-Your task is to write a text about "${topic}" in ${language} that mathematically conforms to a specific LIX readability score.
+    const initialPrompt = `You are a precision text generator. Your task is to write a text about "${topic}" in ${language} that EXACTLY matches specific mathematical constraints.
 
-TARGET METRICS:
-- Sentence Count: EXACTLY ${sentences}
-- Total Word Count: APPROXIMATELY ${targetWords}
-- Long Word Count (> 6 letters): EXACTLY ${targetLongWords}
+CRITICAL CONSTRAINTS (MUST BE EXACT):
+1. Sentence Count: EXACTLY ${sentences} sentences
+2. Long Word Count: EXACTLY ${targetLongWords} words with MORE THAN 6 letters (7+ letters)
+3. Total Word Count: APPROXIMATELY ${targetWords} words (target, not strict)
 
-INSTRUCTIONS:
-1. Plan your text in a <thinking> block.
-2. List the specific words you will use that are longer than 6 letters. Ensure the count is EXACTLY ${targetLongWords}.
-3. Write the final text in a <text> block.
-4. Verify the sentence count is EXACTLY ${sentences}.
+DEFINITIONS (FOLLOW PRECISELY):
+- WORD: Any sequence of letters separated by spaces or punctuation. Punctuation is NOT part of the word.
+- SENTENCE: Text ending with . ! or ?
+- LONG WORD: A word with STRICTLY MORE than 6 letters (minimum 7 letters). Count ONLY letters, NOT punctuation.
+  Example: "running" = 7 letters → LONG WORD ✓
+  Example: "quick" = 5 letters → NOT a long word ✗
+  Example: "school" = 6 letters → NOT a long word ✗
 
-WARNING: The "Long Word Count" is the most critical metric. You must count carefully.
-Definition: A "long word" is any word with strictly more than 6 characters (7 or more). Punctuation does not count as characters.
+STEP-BY-STEP PROCESS (FOLLOW EXACTLY):
 
-Example format:
 <thinking>
-Plan: ...
-Long words to use (Target: 5): 1. example, 2. because, ...
+1. PLAN THE CONTENT:
+   - Brief outline of what the text will say about "${topic}"
+   - Ensure it's appropriate for children in ${language}
+
+2. PRE-SELECT LONG WORDS (CRITICAL):
+   - List EXACTLY ${targetLongWords} long words (7+ letters each) you will use
+   - Count the letters in each word to verify they have 7+ letters
+   - Format: "1. [word] (X letters), 2. [word] (X letters), ..."
+
+3. DRAFT THE TEXT:
+   - Write ${sentences} complete sentences
+   - Incorporate ALL ${targetLongWords} pre-selected long words
+   - Aim for approximately ${targetWords} total words
+   - Keep it natural and coherent
+
+4. VERIFICATION (MANDATORY):
+   - Count sentences: List each sentence numbered
+   - Count ALL words: Go through word by word
+   - Count long words: List each long word with letter count
+   - Double-check: Does everything match the constraints?
 </thinking>
+
 <text>
-Your generated text here.
-</text>`;
+[Your final text here - only the actual text, no explanations]
+</text>
+
+IMPORTANT: The constraints are mathematical requirements, not suggestions. Accuracy is more important than creativity. If you're unsure, count twice.`;
 
     const selectedModel = model || 'claude-opus-4-1-20250805';
 
@@ -147,15 +167,33 @@ Your generated text here.
               return;
             }
 
-            // Construct feedback message
-            let feedback = "Analysis of your previous attempt:\n";
+            // Construct detailed feedback message
+            let feedback = `CONSTRAINT VERIFICATION FAILED - Attempt ${attempts}/${maxAttempts}\n\n`;
+
             if (!isSentenceCorrect) {
-              feedback += `- Sentence count was ${stats.sentences}, but I need EXACTLY ${sentences}.\n`;
+              feedback += `❌ SENTENCE COUNT ERROR:\n`;
+              feedback += `   Expected: ${sentences} sentences\n`;
+              feedback += `   Got: ${stats.sentences} sentences\n`;
+              feedback += `   ${stats.sentences > sentences ? 'Remove ' + (stats.sentences - sentences) + ' sentence(s)' : 'Add ' + (sentences - stats.sentences) + ' sentence(s)'}\n\n`;
+            } else {
+              feedback += `✓ Sentence count: ${stats.sentences} (correct)\n\n`;
             }
+
             if (!isLongWordsCorrect) {
-              feedback += `- Long word count was ${stats.longWords}, but I need EXACTLY ${targetLongWords}.\n`;
+              feedback += `❌ LONG WORD COUNT ERROR (CRITICAL):\n`;
+              feedback += `   Expected: ${targetLongWords} words with 7+ letters\n`;
+              feedback += `   Got: ${stats.longWords} words with 7+ letters\n`;
+              feedback += `   ${stats.longWords > targetLongWords ? 'Replace ' + (stats.longWords - targetLongWords) + ' long word(s) with shorter ones' : 'Replace ' + (targetLongWords - stats.longWords) + ' short word(s) with long ones (7+ letters)'}\n\n`;
+            } else {
+              feedback += `✓ Long word count: ${stats.longWords} (correct)\n\n`;
             }
-            feedback += "Please rewrite the text to fix these errors. Maintain the other metrics if they were correct.";
+
+            feedback += `INSTRUCTIONS FOR NEXT ATTEMPT:\n`;
+            feedback += `1. In your <thinking> block, FIRST list out exactly ${targetLongWords} long words (7+ letters) you will use\n`;
+            feedback += `2. Count the letters in each long word to verify\n`;
+            feedback += `3. Write EXACTLY ${sentences} sentences incorporating those long words\n`;
+            feedback += `4. Before submitting, count again to verify\n`;
+            feedback += `\nRemember: A long word has MORE than 6 letters (7, 8, 9, etc.). The word "school" (6 letters) is NOT a long word.`;
 
             // Add to history for next iteration
             messages.push({ role: 'assistant', content: rawText });
