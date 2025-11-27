@@ -167,6 +167,20 @@ export default function Home() {
             warning={warning}
           />
         )}
+
+        <footer className="mt-16 pt-8 border-t border-gray-200 text-center">
+          <p className="text-xs text-gray-500">
+            Improvements? You can{' '}
+            <a
+              href="https://github.com/rotwurstesser/lix-tool"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 underline"
+            >
+              fork me on GitHub
+            </a>
+          </p>
+        </footer>
       </div>
     </main>
   );
