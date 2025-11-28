@@ -84,6 +84,7 @@ export default function Home() {
               setWarning(data.warning);
             } else if (data.type === 'error') {
               setError(data.error);
+              if (data.attempts) setAttempts(data.attempts);
               // Break out of the stream reading loop on error
               reader.cancel();
               return;

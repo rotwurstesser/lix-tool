@@ -28,51 +28,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const initialPrompt = `You are a precision text generator. Your task is to write a text about "${topic}" in ${language} that EXACTLY matches specific mathematical constraints.
+    const initialPrompt = `Write a children's story about "${topic}" in ${language}.
 
-CRITICAL CONSTRAINTS (MUST BE EXACT):
-1. Sentence Count: EXACTLY ${sentences} sentences
-2. Long Word Count: EXACTLY ${targetLongWords} words with MORE THAN 6 letters (7+ letters)
-3. Total Word Count: APPROXIMATELY ${targetWords} words (target, not strict)
+EXACT REQUIREMENTS:
+- Sentences: EXACTLY ${sentences} (no more, no less)
+- Long words (7+ letters): EXACTLY ${targetLongWords}
+- Total words: around ${targetWords}
 
-DEFINITIONS (FOLLOW PRECISELY):
-- WORD: Any sequence of letters separated by spaces or punctuation. Punctuation is NOT part of the word.
-- SENTENCE: Text ending with . ! or ?
-- LONG WORD: A word with STRICTLY MORE than 6 letters (minimum 7 letters). Count ONLY letters, NOT punctuation.
-  Example: "running" = 7 letters → LONG WORD ✓
-  Example: "quick" = 5 letters → NOT a long word ✗
-  Example: "school" = 6 letters → NOT a long word ✗
+A long word has 7 or more letters. "running" (7 letters) = long word ✓. "school" (6 letters) = NOT long ✗.
 
-STEP-BY-STEP PROCESS (FOLLOW EXACTLY):
-
+Use this format:
 <thinking>
-1. PLAN THE CONTENT:
-   - Brief outline of what the text will say about "${topic}"
-   - Ensure it's appropriate for children in ${language}
-
-2. PRE-SELECT LONG WORDS (CRITICAL):
-   - List EXACTLY ${targetLongWords} long words (7+ letters each) you will use
-   - Count the letters in each word to verify they have 7+ letters
-   - Format: "1. [word] (X letters), 2. [word] (X letters), ..."
-
-3. DRAFT THE TEXT:
-   - Write ${sentences} complete sentences
-   - Incorporate ALL ${targetLongWords} pre-selected long words
-   - Aim for approximately ${targetWords} total words
-   - Keep it natural and coherent
-
-4. VERIFICATION (MANDATORY):
-   - Count sentences: List each sentence numbered
-   - Count ALL words: Go through word by word
-   - Count long words: List each long word with letter count
-   - Double-check: Does everything match the constraints?
+I will write ${sentences} sentences about ${topic}.
+Long words to use (${targetLongWords} total): 1. [word], 2. [word], ...
 </thinking>
 
 <text>
-[Your final text here - only the actual text, no explanations]
-</text>
-
-IMPORTANT: The constraints are mathematical requirements, not suggestions. Accuracy is more important than creativity. If you're unsure, count twice.`;
+Write your story here using EXACTLY ${sentences} sentences.
+</text>`;
 
     const selectedModel = model || 'claude-sonnet-4-5-20250929';
 
@@ -171,33 +144,15 @@ IMPORTANT: The constraints are mathematical requirements, not suggestions. Accur
               return;
             }
 
-            // Construct detailed feedback message
-            let feedback = `CONSTRAINT VERIFICATION FAILED - Attempt ${attempts}/${maxAttempts}\n\n`;
-
+            // Construct feedback message
+            let feedback = `Your attempt ${attempts} had errors:\n`;
             if (!isSentenceCorrect) {
-              feedback += `❌ SENTENCE COUNT ERROR:\n`;
-              feedback += `   Expected: ${sentences} sentences\n`;
-              feedback += `   Got: ${stats.sentences} sentences\n`;
-              feedback += `   ${stats.sentences > sentences ? 'Remove ' + (stats.sentences - sentences) + ' sentence(s)' : 'Add ' + (sentences - stats.sentences) + ' sentence(s)'}\n\n`;
-            } else {
-              feedback += `✓ Sentence count: ${stats.sentences} (correct)\n\n`;
+              feedback += `- Sentences: got ${stats.sentences}, need EXACTLY ${sentences}\n`;
             }
-
             if (!isLongWordsCorrect) {
-              feedback += `❌ LONG WORD COUNT ERROR (CRITICAL):\n`;
-              feedback += `   Expected: ${targetLongWords} words with 7+ letters\n`;
-              feedback += `   Got: ${stats.longWords} words with 7+ letters\n`;
-              feedback += `   ${stats.longWords > targetLongWords ? 'Replace ' + (stats.longWords - targetLongWords) + ' long word(s) with shorter ones' : 'Replace ' + (targetLongWords - stats.longWords) + ' short word(s) with long ones (7+ letters)'}\n\n`;
-            } else {
-              feedback += `✓ Long word count: ${stats.longWords} (correct)\n\n`;
+              feedback += `- Long words (7+ letters): got ${stats.longWords}, need EXACTLY ${targetLongWords}\n`;
             }
-
-            feedback += `INSTRUCTIONS FOR NEXT ATTEMPT:\n`;
-            feedback += `1. In your <thinking> block, FIRST list out exactly ${targetLongWords} long words (7+ letters) you will use\n`;
-            feedback += `2. Count the letters in each long word to verify\n`;
-            feedback += `3. Write EXACTLY ${sentences} sentences incorporating those long words\n`;
-            feedback += `4. Before submitting, count again to verify\n`;
-            feedback += `\nRemember: A long word has MORE than 6 letters (7, 8, 9, etc.). The word "school" (6 letters) is NOT a long word.`;
+            feedback += `\nFix these and try again. Count carefully before submitting.`;
 
             // Add to history for next iteration
             messages.push({ role: 'assistant', content: rawText });
@@ -206,7 +161,7 @@ IMPORTANT: The constraints are mathematical requirements, not suggestions. Accur
         } catch (error: any) {
           console.error('Stream error:', error);
           const errorMessage = error?.error?.message || error.message || 'Failed to generate text';
-          sendUpdate({ type: 'error', error: errorMessage });
+          sendUpdate({ type: 'error', error: errorMessage, attempts: attemptHistory });
           controller.close();
         }
       }
