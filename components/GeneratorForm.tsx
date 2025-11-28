@@ -294,13 +294,9 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
               <input
                 type="number"
                 value={(avgSentenceLength + longWordPct).toFixed(1)}
-                onChange={(e) => {
-                  const newLix = parseFloat(e.target.value) || 0;
-                  const clampedLix = Math.max(10, Math.min(100, newLix));
-                  setLix(clampedLix);
-                }}
+                readOnly
                 step="0.1"
-                className="w-16 text-gray-900 font-bold text-center bg-transparent border-b-2 border-gray-300 focus:border-gray-500 focus:outline-none hover:border-gray-400 transition-colors"
+                className="w-16 text-gray-900 font-bold text-center bg-transparent border-b-2 border-gray-300 cursor-not-allowed"
               />
               <span className="text-[10px] text-gray-400 mt-1">LIX Score</span>
             </div>
