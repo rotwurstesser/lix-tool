@@ -2,20 +2,22 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import { calculateLix } from '@/lib/lix-calculator';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || process.env.LIX_ANTHROPIC_KEY,
-});
-
 export async function POST(request: Request) {
   try {
     // Check API key first to prevent build issues
     const apiKey = process.env.ANTHROPIC_API_KEY || process.env.LIX_ANTHROPIC_KEY;
     if (!apiKey) {
+      console.error('API key not configured');
       return NextResponse.json(
-        { error: 'API key not configured. Please set ANTHROPIC_API_KEY or LIX_ANTHROPIC_KEY environment variable.' },
+        { error: 'API key not configured. Please contact the site administrator to set up the ANTHROPIC_API_KEY environment variable in Netlify.' },
         { status: 500 }
       );
     }
+
+    // Initialize Anthropic client with the API key
+    const anthropic = new Anthropic({
+      apiKey: apiKey,
+    });
 
     const { topic, lix, sentences, language, model, targetWords, targetLongWords } = await request.json();
 
@@ -102,14 +104,16 @@ IMPORTANT: The constraints are mathematical requirements, not suggestions. Accur
               });
             } catch (apiError: any) {
               // Handle specific Anthropic API errors
+              console.error('Anthropic API error:', apiError);
               if (apiError.status === 401) {
-                sendUpdate({ type: 'error', error: 'Invalid API key. Please check your ANTHROPIC_API_KEY.' });
+                sendUpdate({ type: 'error', error: 'Invalid API key. The API key configured on the server is invalid. Please contact the administrator.' });
               } else if (apiError.status === 429) {
                 sendUpdate({ type: 'error', error: 'Rate limit exceeded. Please try again in a few moments.' });
               } else if (apiError.status === 529) {
                 sendUpdate({ type: 'error', error: 'Claude API is temporarily overloaded. Please try again in a moment.' });
               } else {
-                const errorMsg = apiError?.error?.message || apiError.message || 'API request failed';
+                const errorMsg = apiError?.error?.message || apiError.message || 'Unknown API error';
+                console.error('API error details:', errorMsg);
                 sendUpdate({ type: 'error', error: `API error: ${errorMsg}` });
               }
               controller.close();
