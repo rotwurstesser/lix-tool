@@ -44,7 +44,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
   const [lix, setLix] = useState(25);
   const [sentences, setSentences] = useState(8);
   const [language, setLanguage] = useState('German');
-  const [model, setModel] = useState('claude-3-5-sonnet-20241022');
+  const [model, setModel] = useState('claude-sonnet-4-5-20250929');
   const [placeholderTopic, setPlaceholderTopic] = useState('');
 
   // LIX Balancer State
@@ -114,9 +114,9 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
           onChange={(e) => setModel(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
         >
-          <option value="claude-3-opus-20240229">Claude 3 Opus (Best Reasoning)</option>
-          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Recommended)</option>
-          <option value="claude-3-haiku-20240307">Claude 3 Haiku (Fastest)</option>
+          <option value="claude-opus-4-1-20250805">Claude Opus 4.1 (Best Reasoning)</option>
+          <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Recommended)</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Fastest)</option>
         </select>
       </div>
 
@@ -294,13 +294,9 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
               <input
                 type="number"
                 value={(avgSentenceLength + longWordPct).toFixed(1)}
-                onChange={(e) => {
-                  const newLix = parseFloat(e.target.value) || 0;
-                  const clampedLix = Math.max(10, Math.min(100, newLix));
-                  setLix(clampedLix);
-                }}
+                readOnly
                 step="0.1"
-                className="w-16 text-gray-900 font-bold text-center bg-transparent border-b-2 border-gray-300 focus:border-gray-500 focus:outline-none hover:border-gray-400 transition-colors"
+                className="w-16 text-gray-900 font-bold text-center bg-transparent border-b-2 border-gray-300 cursor-not-allowed"
               />
               <span className="text-[10px] text-gray-400 mt-1">LIX Score</span>
             </div>

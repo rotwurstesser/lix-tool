@@ -74,7 +74,7 @@ STEP-BY-STEP PROCESS (FOLLOW EXACTLY):
 
 IMPORTANT: The constraints are mathematical requirements, not suggestions. Accuracy is more important than creativity. If you're unsure, count twice.`;
 
-    const selectedModel = model || 'claude-3-5-sonnet-20241022';
+    const selectedModel = model || 'claude-sonnet-4-5-20250929';
 
     // Create a stream to send updates to the client
     const stream = new ReadableStream({
