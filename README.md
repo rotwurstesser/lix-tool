@@ -1,36 +1,151 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LIX Text Generator
 
-## Getting Started
+Generate texts with specific readability scores using AI. This tool creates educational content that precisely matches LIX (Läsbarhetsindex) readability constraints, powered by Claude AI.
 
-First, run the development server:
+## What is LIX?
+
+LIX (Läsbarhetsindex) is a readability index that indicates the difficulty of reading a text. It's calculated as:
+
+```
+LIX = (words / sentences) + (longWords * 100 / words)
+```
+
+Where:
+- **Words**: Total word count
+- **Sentences**: Number of sentences (ending with `.`, `!`, or `?`)
+- **Long Words**: Words with more than 6 letters (7+ letters)
+
+### Readability Levels
+
+- **< 30**: Very Easy (Children)
+- **30 - 40**: Easy (Fiction)
+- **40 - 50**: Medium (Newspaper)
+- **> 50**: Hard (Academic)
+
+## Features
+
+- **Precise Constraint Matching**: Uses advanced prompt engineering to generate texts that match exact LIX scores
+- **Multi-Attempt Generation**: Automatically retries up to 3 times with detailed feedback to meet constraints
+- **Real-Time Progress**: Stream updates showing each attempt and validation results
+- **Error Handling**: Comprehensive error reporting with retry functionality
+- **Multiple Languages**: Generate texts in any language supported by Claude
+- **Model Selection**: Choose between Claude Opus 4.1, Sonnet 4.5, or Haiku 4.5
+- **Interactive Editing**: Edit LIX calculation parameters directly in the results
+
+## Recent Improvements
+
+### Error Handling (Latest)
+- Fixed issue where generation errors weren't displayed to users
+- Proper stream error handling with user-friendly error messages
+- Added "Try Again" button when errors occur
+
+### Prompt Engineering (Latest)
+Applied chain-of-thought and structured generation best practices:
+- Step-by-step process with numbered instructions
+- Pre-selection of long words with letter counting
+- Mandatory verification before submission
+- Clear definitions with examples
+- Detailed error feedback with specific guidance on how to fix issues
+- Emphasis on precision over creativity
+
+These improvements dramatically increase the accuracy of constraint matching, especially for the critical long word count metric.
+
+## Setup
+
+### Prerequisites
+
+- Node.js 20+
+- npm, yarn, pnpm, or bun
+- Anthropic API key
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/rotwurstesser/lix-tool.git
+cd lix-tool
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Set up environment variables:
+```bash
+cp env.example .env.local
+```
+
+4. Add your Anthropic API key to `.env.local`:
+```
+ANTHROPIC_API_KEY=your_api_key_here
+# or
+LIX_ANTHROPIC_KEY=your_api_key_here
+```
+
+### Development
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## How It Works
 
-To learn more about Next.js, take a look at the following resources:
+1. **User Input**: Enter topic, target LIX score, sentence count, and language
+2. **Constraint Calculation**: System calculates required word count and long word count
+3. **AI Generation**: Claude generates text using structured chain-of-thought prompting
+4. **Validation**: System validates sentence count and long word count
+5. **Retry Loop**: If constraints aren't met, detailed feedback is provided and generation retries (up to 3 attempts)
+6. **Results**: Display generated text with actual LIX score and generation history
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Technical Details
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Prompt Engineering
 
-## Deploy on Vercel
+The system uses advanced prompt engineering techniques:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Chain-of-Thought**: Forces step-by-step reasoning and planning
+- **Pre-Selection**: Requires listing exact long words before writing
+- **Self-Verification**: Mandatory counting and verification step
+- **Structured Output**: Uses XML tags (`<thinking>` and `<text>`) to separate reasoning from output
+- **Detailed Feedback**: Provides specific guidance on constraint violations
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Validation
+
+The system validates:
+- Sentence count (exact match required)
+- Long word count (exact match required, words with 7+ letters)
+- Total word count (approximate target)
+
+### API
+
+Built with Next.js App Router:
+- `POST /api/generate`: Streaming endpoint for text generation
+- Supports all Claude 4 models (Opus 4.1, Sonnet 4.5, Haiku 4.5)
+- Real-time streaming updates for each generation attempt
+
+## Contributing
+
+Improvements? You can fork this project on GitHub and submit pull requests!
+
+## Tech Stack
+
+- [Next.js 16](https://nextjs.org) - React framework
+- [Anthropic Claude API](https://www.anthropic.com) - AI text generation
+- [Tailwind CSS 4](https://tailwindcss.com) - Styling
+- [TypeScript](https://www.typescriptlang.org) - Type safety
+
+## License
+
+MIT
