@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     if (!apiKey) {
       console.error('API key not configured');
       return NextResponse.json(
-        { error: 'API key not configured. Please contact the site administrator to set up the ANTHROPIC_API_KEY environment variable in Netlify.' },
+        { error: 'API key not configured. Please contact the site administrator to set up the ANTHROPIC_API_KEY environment variable.' },
         { status: 500 }
       );
     }
