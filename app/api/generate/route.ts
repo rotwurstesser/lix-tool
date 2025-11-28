@@ -106,7 +106,7 @@ IMPORTANT: The constraints are mathematical requirements, not suggestions. Accur
               // Handle specific Anthropic API errors
               console.error('Anthropic API error:', apiError);
               if (apiError.status === 401) {
-                sendUpdate({ type: 'error', error: 'Invalid API key. The API key configured on the server is invalid. Please contact the administrator.' });
+                sendUpdate({ type: 'error', error: 'Invalid API key configured on the server. Please contact the administrator.' });
               } else if (apiError.status === 429) {
                 sendUpdate({ type: 'error', error: 'Rate limit exceeded. Please try again in a few moments.' });
               } else if (apiError.status === 529) {
