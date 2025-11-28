@@ -29,7 +29,7 @@ Where:
 - **Real-Time Progress**: Stream updates showing each attempt and validation results
 - **Error Handling**: Comprehensive error reporting with retry functionality
 - **Multiple Languages**: Generate texts in any language supported by Claude
-- **Model Selection**: Choose between Claude Opus 4.1, Sonnet 4.5, or Haiku 4.5
+- **Model Selection**: Choose between Claude 3 Opus, Claude 3.5 Sonnet, or Claude 3.5 Haiku
 - **Interactive Editing**: Edit LIX calculation parameters directly in the results
 
 ## Recent Improvements
@@ -132,7 +132,7 @@ The system validates:
 
 Built with Next.js App Router:
 - `POST /api/generate`: Streaming endpoint for text generation
-- Supports all Claude 4 models (Opus 4.1, Sonnet 4.5, Haiku 4.5)
+- Supports Claude 3 and Claude 3.5 models (Opus, Sonnet 3.5, Haiku 3.5)
 - Real-time streaming updates for each generation attempt
 
 ## Contributing
