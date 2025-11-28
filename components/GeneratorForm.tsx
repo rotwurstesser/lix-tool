@@ -44,7 +44,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
   const [lix, setLix] = useState(25);
   const [sentences, setSentences] = useState(8);
   const [language, setLanguage] = useState('German');
-  const [model, setModel] = useState('claude-3-5-sonnet-20240620');
+  const [model, setModel] = useState('claude-3-5-sonnet-20241022');
   const [placeholderTopic, setPlaceholderTopic] = useState('');
 
   // LIX Balancer State
@@ -115,7 +115,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
         >
           <option value="claude-3-opus-20240229">Claude 3 Opus (Best Reasoning)</option>
-          <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet (Recommended)</option>
+          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Recommended)</option>
           <option value="claude-3-haiku-20240307">Claude 3 Haiku (Fastest)</option>
         </select>
       </div>
