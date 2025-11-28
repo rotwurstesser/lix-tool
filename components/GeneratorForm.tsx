@@ -47,7 +47,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
   const [language, setLanguage] = useState('German');
   const [model, setModel] = useState('claude-sonnet-4-5-20250929');
   const [placeholderTopic, setPlaceholderTopic] = useState('');
-  const [fuzziness, setFuzziness] = useState(0);
+  const [fuzziness, setFuzziness] = useState(3);
 
   // LIX Balancer State
   const [avgSentenceLength, setAvgSentenceLength] = useState(15);
@@ -223,7 +223,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
               value={fuzziness}
               onChange={(e) => setFuzziness(Number(e.target.value))}
               min="0"
-              max="5"
+              max="8"
               step="1"
               className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
             />
