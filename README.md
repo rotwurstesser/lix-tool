@@ -2,6 +2,8 @@
 
 Generate texts with specific readability scores using AI. This tool creates educational content that precisely matches LIX (Läsbarhetsindex) readability constraints, powered by Claude AI.
 
+**🌐 Live Demo:** https://remarkable-platypus-e70326.netlify.app
+
 ## What is LIX?
 
 LIX (Läsbarhetsindex) is a readability index that indicates the difficulty of reading a text. It's calculated as:
