@@ -12,6 +12,7 @@ interface GenerationParams {
   model: string;
   targetWords: number;
   targetLongWords: number;
+  fuzziness: number;
 }
 
 export default function Home() {

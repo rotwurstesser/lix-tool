@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       apiKey,
     });
 
-    const { topic, lix, sentences, language, model, targetWords, targetLongWords } = await request.json();
+    const { topic, lix, sentences, language, model, targetWords, targetLongWords, fuzziness = 0 } = await request.json();
 
     if (!topic || !lix || !sentences || !language || targetWords === undefined || targetLongWords === undefined) {
       return NextResponse.json(
@@ -100,10 +100,10 @@ Write your story here using EXACTLY ${sentences} sentences.
             const textMatch = rawText.match(/<text>([\s\S]*?)<\/text>/);
             const text = textMatch ? textMatch[1].trim() : rawText.replace(/<thinking>[\s\S]*?<\/thinking>/, '').trim();
 
-            // Verify constraints
+            // Verify constraints with fuzziness tolerance
             const stats = calculateLix(text);
-            const isSentenceCorrect = stats.sentences === sentences;
-            const isLongWordsCorrect = stats.longWords === targetLongWords;
+            const isSentenceCorrect = Math.abs(stats.sentences - sentences) <= fuzziness;
+            const isLongWordsCorrect = Math.abs(stats.longWords - targetLongWords) <= fuzziness;
 
             const attemptData = {
               attempt: attempts,
@@ -114,10 +114,12 @@ Write your story here using EXACTLY ${sentences} sentences.
             };
 
             if (!isSentenceCorrect) {
-              attemptData.errors.push(`Sentence count: ${stats.sentences} (Target: ${sentences})`);
+              const range = fuzziness === 0 ? `Exactly ${sentences}` : `${sentences - fuzziness}-${sentences + fuzziness}`;
+              attemptData.errors.push(`Sentence count: ${stats.sentences} (Required: ${range})`);
             }
             if (!isLongWordsCorrect) {
-              attemptData.errors.push(`Long word count: ${stats.longWords} (Target: ${targetLongWords})`);
+              const range = fuzziness === 0 ? `Exactly ${targetLongWords}` : `${targetLongWords - fuzziness}-${targetLongWords + fuzziness}`;
+              attemptData.errors.push(`Long word count: ${stats.longWords} (Required: ${range})`);
             }
 
             attemptHistory.push(attemptData);
