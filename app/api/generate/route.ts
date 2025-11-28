@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
     // Initialize Anthropic client with the API key
     const anthropic = new Anthropic({
-      apiKey: apiKey,
+      apiKey,
     });
 
     const { topic, lix, sentences, language, model, targetWords, targetLongWords } = await request.json();
