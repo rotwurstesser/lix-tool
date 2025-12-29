@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { calculateLix } from '@/lib/lix-calculator';
 import { Attempt } from '@/types';
 
+export const runtime = 'edge';
+
 interface Message {
   role: 'system' | 'user' | 'assistant';
   content: string;

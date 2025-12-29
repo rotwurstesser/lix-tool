@@ -33,8 +33,21 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate text');
+        let errorMsg = 'Failed to generate text';
+        try {
+          const rawText = await response.text();
+          try {
+            const data = JSON.parse(rawText);
+            errorMsg = data.error || errorMsg;
+          } catch {
+            // If it's not JSON, it's likely an HTML error page from the server
+            console.error('Non-JSON error response:', rawText.substring(0, 200));
+            errorMsg = `Server Error (${response.status}): ${rawText.includes('<!DOCTYPE') || rawText.includes('<html') ? 'Check server logs (HTML response)' : rawText.substring(0, 100)}`;
+          }
+        } catch (e) {
+          console.error('Error reading error response:', e);
+        }
+        throw new Error(errorMsg);
       }
 
       const reader = response.body?.getReader();
