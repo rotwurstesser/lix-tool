@@ -71,8 +71,8 @@ Total: 25 words, 3 long words. Matches.
 The generated story goes here.
 </text>`;
 
-    // Default to DeepSeek R1 for better reasoning on strict constraints
-    const selectedModel = model || 'deepseek/deepseek-r1';
+    // Default to DeepSeek R1 Distill 70B for better reasoning AND speed
+    const selectedModel = model || 'deepseek/deepseek-r1-distill-llama-70b';
 
     // Create a stream to send updates to the client
     const stream = new ReadableStream({

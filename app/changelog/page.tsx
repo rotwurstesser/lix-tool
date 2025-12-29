@@ -23,7 +23,9 @@ export default function ChangelogPage() {
         'Updated Next.js to resolve CVE-2025-55182 security block',
         'Enabled Edge Runtime to prevent timeouts during long reasoning steps',
         'Improved error handling for non-JSON responses',
-        'Implemented immediate Keep-Alive signal to bypass Netlify TTFB timeout'
+        'Improved error handling for non-JSON responses',
+        'Implemented immediate Keep-Alive signal to bypass Netlify TTFB timeout',
+        'Switched to DeepSeek R1 Distill 70B to resolve execution timeout (30s+ latency) while maintaining precision'
       ]
     },
     {
