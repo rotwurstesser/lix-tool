@@ -109,15 +109,15 @@ The generated story goes here.
         try {
           while (attempts < maxAttempts) {
             attempts++;
-            console.log(`Attempt ${attempts} of ${maxAttempts}`);
 
-            let completion;
+            let streamResponse;
             try {
-              completion = await openai.chat.completions.create({
+              streamResponse = await openai.chat.completions.create({
                 model: selectedModel,
                 messages: messages,
-                max_tokens: 2000,
-                temperature: 0.0, // Zero temperature for maximum precision
+                max_tokens: 4000,
+                temperature: 0.0,
+                stream: true,
               });
             } catch (err: unknown) {
               const apiError = err as Error;
@@ -128,8 +128,20 @@ The generated story goes here.
               return;
             }
 
-            const rawText = completion.choices[0]?.message?.content || '';
-            console.log('Model output:', rawText);
+            let rawText = '';
+            let chunkCount = 0;
+
+            for await (const chunk of streamResponse) {
+              const content = chunk.choices[0]?.delta?.content || '';
+              if (content) {
+                rawText += content;
+                chunkCount++;
+                // Send a heartbeat every 5 chunks to keep connection alive and show activity
+                if (chunkCount % 5 === 0) {
+                  sendUpdate({ status: 'generating', message: `Thinking... (${rawText.length} chars so far)` });
+                }
+              }
+            }
 
             // Parse out the content between <text> tags
             const textMatch = rawText.match(/<text>([\s\S]*?)<\/text>/);
