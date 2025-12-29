@@ -3,11 +3,6 @@ import { NextResponse } from 'next/server';
 import { calculateLix } from '@/lib/lix-calculator';
 import { Attempt } from '@/types';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: 'https://openrouter.ai/api/v1',
-});
-
 interface Message {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -72,6 +67,12 @@ The generated story goes here.
         const sendUpdate = (data: unknown) => {
           controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
         };
+
+        // Initialize OpenAI client inside the request handler to avoid build-time errors
+        const openai = new OpenAI({
+          apiKey: apiKey, // Use the checked key
+          baseURL: 'https://openrouter.ai/api/v1',
+        });
 
         const messages: Message[] = [
           {

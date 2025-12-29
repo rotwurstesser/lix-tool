@@ -10,7 +10,7 @@ export default function Footer() {
         <div className="flex items-center gap-4">
           <Link href="/changelog" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            v0.3.0
+            v0.3.1
           </Link>
           <a href="https://github.com/rotwurstesser/lix-tool" target="_blank" rel="noopener noreferrer" className="hover:text-gray-900 transition-colors">
             GitHub

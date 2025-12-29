@@ -3,6 +3,16 @@ import Link from 'next/link';
 export default function ChangelogPage() {
   const versions = [
     {
+      version: 'v0.3.1',
+      date: '2025-12-29',
+      title: 'Build Stability Fix',
+      changes: [
+        'Moved prompt initialization to runtime to prevent build failures in serverless environments',
+        'Fixed top-level API client initialization architecture',
+        'Resolved lingering linting issues'
+      ]
+    },
+    {
       version: 'v0.3.0',
       date: '2025-12-29',
       title: 'Precision Update with TNG-Chimera',
