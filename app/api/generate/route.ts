@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { topic, lix, sentences, language, model, targetWords, targetLongWords } = await request.json();
+    const { topic, lix, sentences, language, model, targetWords, targetLongWords, fuzziness = 0 } = await request.json();
 
     if (!topic || !lix || !sentences || !language || targetWords === undefined || targetLongWords === undefined) {
       return NextResponse.json(
@@ -67,13 +67,7 @@ The generated story goes here.
           controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
         };
 
-        let messages: any[] = [{ role: 'system', content: initialPrompt }];
-        // For the first user message, we can just say "Start." or repeat the topic to trigger the generation
-        // But since we put everything in system prompt (better for some models), we can just give a trigger.
-        // Actually, for OpenRouter/TNG, it's often better to put the specific instruction in the user prompt if system is generic.
-        // Let's adjust: System gets the persona, User gets the specific task.
-
-        messages = [
+        let messages: any[] = [
           {
             role: 'system',
             content: 'You are a precise constraint-following AI. You prioritize mathematical accuracy of word/sentence counts above subjective story quality.'
@@ -120,10 +114,10 @@ The generated story goes here.
             // Cleanup: sometimes models leave leading/trailing quotes or markdown
             text = text.replace(/^["']|["']$/g, '').trim();
 
-            // Verify constraints
+            // Verify constraints with fuzziness tolerance
             const stats = calculateLix(text);
-            const isSentenceCorrect = stats.sentences === sentences;
-            const isLongWordsCorrect = stats.longWords === targetLongWords;
+            const isSentenceCorrect = Math.abs(stats.sentences - sentences) <= fuzziness;
+            const isLongWordsCorrect = Math.abs(stats.longWords - targetLongWords) <= fuzziness;
 
             const attemptData = {
               attempt: attempts,
@@ -134,10 +128,12 @@ The generated story goes here.
             };
 
             if (!isSentenceCorrect) {
-              attemptData.errors.push(`Sentence count: ${stats.sentences} (Target: ${sentences})`);
+              const range = fuzziness === 0 ? `Exactly ${sentences}` : `${sentences - fuzziness}-${sentences + fuzziness}`;
+              attemptData.errors.push(`Sentence count: ${stats.sentences} (Required: ${range})`);
             }
             if (!isLongWordsCorrect) {
-              attemptData.errors.push(`Long word count: ${stats.longWords} (Target: ${targetLongWords})`);
+              const range = fuzziness === 0 ? `Exactly ${targetLongWords}` : `${targetLongWords - fuzziness}-${targetLongWords + fuzziness}`;
+              attemptData.errors.push(`Long word count: ${stats.longWords} (Required: ${range})`);
             }
 
             attemptHistory.push(attemptData);
@@ -165,12 +161,12 @@ The generated story goes here.
             }
 
             // Construct feedback message
-            let feedback = "Analysis of your previous attempt:\n";
+            let feedback = `Your attempt ${attempts} had errors:\n`;
             if (!isSentenceCorrect) {
-              feedback += `- Sentence count was ${stats.sentences}, but I need EXACTLY ${sentences}.\n`;
+              feedback += `- Sentences: got ${stats.sentences}, need EXACTLY ${sentences}\n`;
             }
             if (!isLongWordsCorrect) {
-              feedback += `- Long word count was ${stats.longWords}, but I need EXACTLY ${targetLongWords}.\n`;
+              feedback += `- Long words (7+ letters): got ${stats.longWords}, need EXACTLY ${targetLongWords}\n`;
             }
             feedback += "Please rewrite the text to fix these errors. You MUST count the words and sentences carefully. Prioritize the count over the plot.";
 

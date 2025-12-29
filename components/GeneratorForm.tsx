@@ -11,6 +11,7 @@ interface GeneratorFormProps {
     model: string;
     targetWords: number;
     targetLongWords: number;
+    fuzziness: number;
   }) => void;
   isLoading: boolean;
   loadingMessage: string;
@@ -46,6 +47,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
   const [language, setLanguage] = useState('German');
   const [model, setModel] = useState('tngtech/tng-r1t-chimera');
   const [placeholderTopic, setPlaceholderTopic] = useState('');
+  const [fuzziness, setFuzziness] = useState(3);
 
   // LIX Balancer State
   const [avgSentenceLength, setAvgSentenceLength] = useState(15);
@@ -98,7 +100,8 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
       language,
       model,
       targetWords,
-      targetLongWords
+      targetLongWords,
+      fuzziness
     });
   };
 
@@ -208,6 +211,32 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           />
         </div>
+
+        <div className="space-y-2">
+          <label htmlFor="fuzziness" className="block text-sm font-medium text-gray-700">
+            Tolerance (Fuzziness)
+          </label>
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              id="fuzziness"
+              value={fuzziness}
+              onChange={(e) => setFuzziness(Number(e.target.value))}
+              min="0"
+              max="8"
+              step="1"
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+            />
+            <span className="text-sm font-bold text-gray-900 w-12 text-center">
+              ±{fuzziness}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500">
+            {fuzziness === 0
+              ? 'Exact match required (strictest)'
+              : `Allows ±${fuzziness} deviation from target constraints`}
+          </p>
+        </div>
       </div>
 
       {/* LIX Balancer UI */}
@@ -294,13 +323,9 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
               <input
                 type="number"
                 value={(avgSentenceLength + longWordPct).toFixed(1)}
-                onChange={(e) => {
-                  const newLix = parseFloat(e.target.value) || 0;
-                  const clampedLix = Math.max(10, Math.min(100, newLix));
-                  setLix(clampedLix);
-                }}
+                readOnly
                 step="0.1"
-                className="w-16 text-gray-900 font-bold text-center bg-transparent border-b-2 border-gray-300 focus:border-gray-500 focus:outline-none hover:border-gray-400 transition-colors"
+                className="w-16 text-gray-900 font-bold text-center bg-transparent border-b-2 border-gray-300 cursor-not-allowed"
               />
               <span className="text-[10px] text-gray-400 mt-1">LIX Score</span>
             </div>

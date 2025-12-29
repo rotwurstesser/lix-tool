@@ -12,6 +12,7 @@ interface GenerationParams {
   model: string;
   targetWords: number;
   targetLongWords: number;
+  fuzziness: number;
 }
 
 export default function Home() {
@@ -84,10 +85,19 @@ export default function Home() {
               setWarning(data.warning);
             } else if (data.type === 'error') {
               setError(data.error);
-              throw new Error(data.error);
+              if (data.attempts) setAttempts(data.attempts);
+              // Break out of the stream reading loop on error
+              reader.cancel();
+              return;
             }
           } catch (e) {
-            console.error('Error parsing stream chunk:', e);
+            // Only log JSON parsing errors, don't swallow intentional errors
+            if (e instanceof SyntaxError) {
+              console.error('Error parsing stream chunk:', e);
+            } else {
+              // Re-throw non-parsing errors
+              throw e;
+            }
           }
         }
       }
@@ -150,6 +160,54 @@ export default function Home() {
           </div>
         )}
 
+        {attempts && attempts.length > 0 && (
+          <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-700">Generation Attempts</span>
+                <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                  {attempts.length} {attempts.length === 1 ? 'attempt' : 'attempts'}
+                </span>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {attempts.map((attempt: any, idx: number) => (
+                <div key={idx} className={`p-6 ${attempt.isSuccess ? 'bg-green-50/30' : 'bg-red-50/30'}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-gray-900">Attempt {attempt.attempt}</span>
+                      {attempt.isSuccess ? (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">Success</span>
+                      ) : (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">Failed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {!attempt.isSuccess && attempt.errors && (
+                    <div className="mb-3 space-y-1">
+                      {attempt.errors.map((err: string, i: number) => (
+                        <div key={i} className="text-xs text-red-600 flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                          </svg>
+                          {err} | LIX: {attempt.stats.score}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-200 font-mono text-xs whitespace-pre-wrap">
+                    {attempt.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {generatedText && lastParams && (
           <ResultDisplay
             text={generatedText}
@@ -159,6 +217,20 @@ export default function Home() {
             warning={warning}
           />
         )}
+
+        <footer className="mt-16 pt-8 border-t border-gray-200 text-center">
+          <p className="text-xs text-gray-500">
+            Improvements? You can{' '}
+            <a
+              href="https://github.com/rotwurstesser/lix-tool"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 underline"
+            >
+              fork me on GitHub
+            </a>
+          </p>
+        </footer>
       </div>
     </main>
   );
