@@ -20,7 +20,9 @@ export default function ChangelogPage() {
         'Moved prompt initialization to runtime to prevent build failures in serverless environments',
         'Fixed top-level API client initialization architecture',
         'Resolved lingering linting issues',
-        'Updated Next.js to resolve CVE-2025-55182 security block'
+        'Updated Next.js to resolve CVE-2025-55182 security block',
+        'Enabled Edge Runtime to prevent timeouts during long reasoning steps',
+        'Improved error handling for non-JSON responses'
       ]
     },
     {
