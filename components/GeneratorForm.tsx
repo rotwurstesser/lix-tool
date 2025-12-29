@@ -54,27 +54,32 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
   const [longWordPct, setLongWordPct] = useState(25);
 
   useEffect(() => {
-    setPlaceholderTopic(CHILDREN_TOPICS[Math.floor(Math.random() * CHILDREN_TOPICS.length)]);
+    // Run after mount to avoid hydration mismatch
+    const randomTopic = CHILDREN_TOPICS[Math.floor(Math.random() * CHILDREN_TOPICS.length)];
+    // eslint-disable-next-line
+    setPlaceholderTopic(randomTopic);
   }, []);
 
   // Sync sliders when LIX changes
-  useEffect(() => {
+  const handleLixChange = (newLix: number) => {
+    // Clamp values
+    const clampedLix = Math.max(10, Math.min(100, newLix));
+    setLix(clampedLix);
+
     // Default distribution: roughly 30-40% sentence length, rest long words
-    // But LIX = AvgLength + LongPct
-    // Let's try to keep AvgLength reasonable (10-25)
     let newAvgLength = 15;
-    if (lix < 30) newAvgLength = 10;
-    else if (lix < 40) newAvgLength = 12;
-    else if (lix < 50) newAvgLength = 14;
-    else if (lix < 60) newAvgLength = 17;
+    if (clampedLix < 30) newAvgLength = 10;
+    else if (clampedLix < 40) newAvgLength = 12;
+    else if (clampedLix < 50) newAvgLength = 14;
+    else if (clampedLix < 60) newAvgLength = 17;
     else newAvgLength = 20;
 
     // Clamp to ensure LongPct is positive
-    if (newAvgLength > lix) newAvgLength = lix;
+    if (newAvgLength > clampedLix) newAvgLength = clampedLix;
 
     setAvgSentenceLength(newAvgLength);
-    setLongWordPct(lix - newAvgLength);
-  }, [lix]);
+    setLongWordPct(clampedLix - newAvgLength);
+  };
 
   // Handle slider changes
   const handleLengthChange = (newLength: number) => {
@@ -162,7 +167,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setLix(Math.max(10, lix - 5))}
+              onClick={() => handleLixChange(lix - 5)}
               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
               title="Decrease by 5"
             >
@@ -174,7 +179,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
               type="number"
               id="lix"
               value={lix}
-              onChange={(e) => setLix(Number(e.target.value))}
+              onChange={(e) => handleLixChange(Number(e.target.value))}
               min="10"
               max="100"
               required
@@ -182,7 +187,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
             />
             <button
               type="button"
-              onClick={() => setLix(Math.min(100, lix + 5))}
+              onClick={() => handleLixChange(lix + 5)}
               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
               title="Increase by 5"
             >

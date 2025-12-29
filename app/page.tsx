@@ -3,21 +3,11 @@
 import { useState } from 'react';
 import GeneratorForm from '@/components/GeneratorForm';
 import ResultDisplay from '@/components/ResultDisplay';
-
-interface GenerationParams {
-  topic: string;
-  lix: number;
-  sentences: number;
-  language: string;
-  model: string;
-  targetWords: number;
-  targetLongWords: number;
-  fuzziness: number;
-}
+import { Attempt, GenerationParams } from '@/types';
 
 export default function Home() {
   const [generatedText, setGeneratedText] = useState('');
-  const [attempts, setAttempts] = useState<any[]>([]);
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [warning, setWarning] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -101,9 +91,10 @@ export default function Home() {
           }
         }
       }
-    } catch (error: any) {
-      console.error('Error:', error);
-      const errorMsg = error.message || 'Failed to generate text. Please try again.';
+    } catch (err: unknown) {
+      const errorObj = err as Error;
+      console.error('Error:', errorObj);
+      const errorMsg = errorObj.message || 'Failed to generate text. Please try again.';
       setError(errorMsg);
     } finally {
       setIsLoading(false);
@@ -171,7 +162,7 @@ export default function Home() {
               </div>
             </div>
             <div className="divide-y divide-gray-100">
-              {attempts.map((attempt: any, idx: number) => (
+              {attempts.map((attempt: Attempt, idx: number) => (
                 <div key={idx} className={`p-6 ${attempt.isSuccess ? 'bg-green-50/30' : 'bg-red-50/30'}`}>
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">

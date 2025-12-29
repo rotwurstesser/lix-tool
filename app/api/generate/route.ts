@@ -1,11 +1,17 @@
 import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { calculateLix } from '@/lib/lix-calculator';
+import { Attempt } from '@/types';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
 });
+
+interface Message {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
 
 export async function POST(request: Request) {
   try {
@@ -63,11 +69,11 @@ The generated story goes here.
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-        const sendUpdate = (data: any) => {
+        const sendUpdate = (data: unknown) => {
           controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
         };
 
-        let messages: any[] = [
+        const messages: Message[] = [
           {
             role: 'system',
             content: 'You are a precise constraint-following AI. You prioritize mathematical accuracy of word/sentence counts above subjective story quality.'
@@ -80,7 +86,7 @@ The generated story goes here.
 
         let attempts = 0;
         const maxAttempts = 3;
-        const attemptHistory: any[] = [];
+        const attemptHistory: Attempt[] = [];
 
         try {
           while (attempts < maxAttempts) {
@@ -95,7 +101,8 @@ The generated story goes here.
                 max_tokens: 2000,
                 temperature: 0.1, // Lower temperature for precision
               });
-            } catch (apiError: any) {
+            } catch (err: unknown) {
+              const apiError = err as Error;
               console.error('OpenRouter API Error:', apiError);
               const errorMsg = apiError?.message || 'API request failed';
               sendUpdate({ type: 'error', error: `API error: ${errorMsg}` });
@@ -119,12 +126,15 @@ The generated story goes here.
             const isSentenceCorrect = Math.abs(stats.sentences - sentences) <= fuzziness;
             const isLongWordsCorrect = Math.abs(stats.longWords - targetLongWords) <= fuzziness;
 
-            const attemptData = {
+            const attemptData: Attempt = {
               attempt: attempts,
               text,
-              stats,
+              stats: {
+                ...stats,
+                words: stats.words // Ensure compatibility
+              },
               isSuccess: isSentenceCorrect && isLongWordsCorrect,
-              errors: [] as string[]
+              errors: []
             };
 
             if (!isSentenceCorrect) {
@@ -174,7 +184,8 @@ The generated story goes here.
             messages.push({ role: 'assistant', content: rawText });
             messages.push({ role: 'user', content: feedback });
           }
-        } catch (error: any) {
+        } catch (err: unknown) {
+          const error = err as Error;
           console.error('Stream error:', error);
           const errorMessage = error?.message || 'Failed to generate text';
           sendUpdate({ type: 'error', error: errorMessage });
@@ -190,7 +201,8 @@ The generated story goes here.
       },
     });
 
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     console.error('Error generating text:', error);
     const errorMessage = error?.message || 'Failed to generate text';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
