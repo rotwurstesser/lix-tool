@@ -82,6 +82,9 @@ The generated story goes here.
           controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
         };
 
+        // Send immediate Keep-Alive to prevent Netlify/Edge 30s timeout waiting for TTFT
+        sendUpdate({ status: 'initializing', message: 'Connecting to DeepSeek R1...' });
+
         // Initialize OpenAI client inside the request handler to avoid build-time errors
         const openai = new OpenAI({
           apiKey: apiKey, // Use the checked key

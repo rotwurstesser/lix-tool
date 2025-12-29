@@ -22,7 +22,8 @@ export default function ChangelogPage() {
         'Resolved lingering linting issues',
         'Updated Next.js to resolve CVE-2025-55182 security block',
         'Enabled Edge Runtime to prevent timeouts during long reasoning steps',
-        'Improved error handling for non-JSON responses'
+        'Improved error handling for non-JSON responses',
+        'Implemented immediate Keep-Alive signal to bypass Netlify TTFB timeout'
       ]
     },
     {
