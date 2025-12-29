@@ -1,18 +1,19 @@
-import { Anthropic } from '@anthropic-ai/sdk';
+import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
 import { calculateLix } from '@/lib/lix-calculator';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || process.env.LIX_ANTHROPIC_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
 });
 
 export async function POST(request: Request) {
   try {
     // Check API key first to prevent build issues
-    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.LIX_ANTHROPIC_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'API key not configured. Please set ANTHROPIC_API_KEY or LIX_ANTHROPIC_KEY environment variable.' },
+        { error: 'API key not configured. Please set OPENROUTER_API_KEY environment variable.' },
         { status: 500 }
       );
     }
@@ -26,33 +27,37 @@ export async function POST(request: Request) {
       );
     }
 
-    const initialPrompt = `You are an expert educational content creator for children.
-Your task is to write a text about "${topic}" in ${language} that mathematically conforms to a specific LIX readability score.
+    const initialPrompt = `You are a specialized constraint-solving writing assistant.
+Your PRIMARY GOAL is to satisfy mathematical constraints EXACTLY. The quality of the story is secondary to the precision of the metrics.
 
-TARGET METRICS:
-- Sentence Count: EXACTLY ${sentences}
-- Total Word Count: APPROXIMATELY ${targetWords}
-- Long Word Count (> 6 letters): EXACTLY ${targetLongWords}
+TASK: Write a text about "${topic}" in ${language}.
 
-INSTRUCTIONS:
-1. Plan your text in a <thinking> block.
-2. List the specific words you will use that are longer than 6 letters. Ensure the count is EXACTLY ${targetLongWords}.
-3. Write the final text in a <text> block.
-4. Verify the sentence count is EXACTLY ${sentences}.
+STRICT CONSTRAINTS (MUST BE EXACT):
+1. Sentence Count: EXACTLY ${sentences}
+2. Long Word Count (> 6 letters): EXACTLY ${targetLongWords}
+3. Total Word Count: Approximately ${targetWords} (tolerance +/- 5 words)
 
-WARNING: The "Long Word Count" is the most critical metric. You must count carefully.
-Definition: A "long word" is any word with strictly more than 6 characters (7 or more). Punctuation does not count as characters.
+DEFINITION:
+- A "long word" is strictly more than 6 characters (7 or more letters).
+- Punctuation does NOT count as part of the word length.
 
-Example format:
+FORMATTING INSTRUCTIONS:
+1. First, you MUST output a <thinking> block where you explicitly plan the sentence structure and list the long words you will use.
+2. Then, output the final text inside <text> tags.
+
+Example:
 <thinking>
-Plan: ...
-Long words to use (Target: 5): 1. example, 2. because, ...
+I need 5 sentences and 3 long words.
+Sentence 1: ... (0 long words)
+Sentence 2: ... (use 'beautiful' - 9 letters)
+...
 </thinking>
 <text>
-Your generated text here.
+The generated story goes here.
 </text>`;
 
-    const selectedModel = model || 'claude-opus-4-1-20250805';
+    // Default to TNG-Chimera if not specified, or use the user's choice (mapped to OpenRouter if possible)
+    const selectedModel = model || 'tngtech/tng-r1t-chimera';
 
     // Create a stream to send updates to the client
     const stream = new ReadableStream({
@@ -62,7 +67,23 @@ Your generated text here.
           controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
         };
 
-        let messages: any[] = [{ role: 'user', content: initialPrompt }];
+        let messages: any[] = [{ role: 'system', content: initialPrompt }];
+        // For the first user message, we can just say "Start." or repeat the topic to trigger the generation
+        // But since we put everything in system prompt (better for some models), we can just give a trigger.
+        // Actually, for OpenRouter/TNG, it's often better to put the specific instruction in the user prompt if system is generic.
+        // Let's adjust: System gets the persona, User gets the specific task.
+
+        messages = [
+          {
+            role: 'system',
+            content: 'You are a precise constraint-following AI. You prioritize mathematical accuracy of word/sentence counts above subjective story quality.'
+          },
+          {
+            role: 'user',
+            content: initialPrompt
+          }
+        ];
+
         let attempts = 0;
         const maxAttempts = 3;
         const attemptHistory: any[] = [];
@@ -72,36 +93,32 @@ Your generated text here.
             attempts++;
             console.log(`Attempt ${attempts} of ${maxAttempts}`);
 
-            let message;
+            let completion;
             try {
-              message = await anthropic.messages.create({
+              completion = await openai.chat.completions.create({
                 model: selectedModel,
-                max_tokens: 2000,
-                temperature: 0.3,
                 messages: messages,
+                max_tokens: 2000,
+                temperature: 0.1, // Lower temperature for precision
               });
             } catch (apiError: any) {
-              // Handle specific Anthropic API errors
-              if (apiError.status === 401) {
-                sendUpdate({ type: 'error', error: 'Invalid API key. Please check your ANTHROPIC_API_KEY.' });
-              } else if (apiError.status === 429) {
-                sendUpdate({ type: 'error', error: 'Rate limit exceeded. Please try again in a few moments.' });
-              } else if (apiError.status === 529) {
-                sendUpdate({ type: 'error', error: 'Claude API is temporarily overloaded. Please try again in a moment.' });
-              } else {
-                const errorMsg = apiError?.error?.message || apiError.message || 'API request failed';
-                sendUpdate({ type: 'error', error: `API error: ${errorMsg}` });
-              }
+              console.error('OpenRouter API Error:', apiError);
+              const errorMsg = apiError?.message || 'API request failed';
+              sendUpdate({ type: 'error', error: `API error: ${errorMsg}` });
               controller.close();
               return;
             }
 
-            const contentBlock = message.content[0];
-            const rawText = contentBlock.type === 'text' ? contentBlock.text : '';
+            const rawText = completion.choices[0]?.message?.content || '';
+            console.log('Model output:', rawText);
 
             // Parse out the content between <text> tags
             const textMatch = rawText.match(/<text>([\s\S]*?)<\/text>/);
-            const text = textMatch ? textMatch[1].trim() : rawText.replace(/<thinking>[\s\S]*?<\/thinking>/, '').trim();
+            // If no tags, try to strip thinking tags, otherwise just take raw text
+            let text = textMatch ? textMatch[1].trim() : rawText.replace(/<thinking>[\s\S]*?<\/thinking>/, '').trim();
+
+            // Cleanup: sometimes models leave leading/trailing quotes or markdown
+            text = text.replace(/^["']|["']$/g, '').trim();
 
             // Verify constraints
             const stats = calculateLix(text);
@@ -155,7 +172,7 @@ Your generated text here.
             if (!isLongWordsCorrect) {
               feedback += `- Long word count was ${stats.longWords}, but I need EXACTLY ${targetLongWords}.\n`;
             }
-            feedback += "Please rewrite the text to fix these errors. Maintain the other metrics if they were correct.";
+            feedback += "Please rewrite the text to fix these errors. You MUST count the words and sentences carefully. Prioritize the count over the plot.";
 
             // Add to history for next iteration
             messages.push({ role: 'assistant', content: rawText });
@@ -163,7 +180,7 @@ Your generated text here.
           }
         } catch (error: any) {
           console.error('Stream error:', error);
-          const errorMessage = error?.error?.message || error.message || 'Failed to generate text';
+          const errorMessage = error?.message || 'Failed to generate text';
           sendUpdate({ type: 'error', error: errorMessage });
           controller.close();
         }
@@ -179,8 +196,7 @@ Your generated text here.
 
   } catch (error: any) {
     console.error('Error generating text:', error);
-    const errorMessage = error?.error?.message || error.message || 'Failed to generate text';
-    const status = error?.status || 500;
-    return NextResponse.json({ error: errorMessage }, { status: status });
+    const errorMessage = error?.message || 'Failed to generate text';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
