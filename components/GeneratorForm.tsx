@@ -45,7 +45,7 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
   const [lix, setLix] = useState(25);
   const [sentences, setSentences] = useState(8);
   const [language, setLanguage] = useState('German');
-  const [model, setModel] = useState('tngtech/tng-r1t-chimera');
+  const [model, setModel] = useState('deepseek/deepseek-r1');
   const [placeholderTopic, setPlaceholderTopic] = useState('');
   const [fuzziness, setFuzziness] = useState(3);
 
@@ -122,8 +122,8 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
           onChange={(e) => setModel(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
         >
-          <option value="tngtech/tng-r1t-chimera">TNG R1t Chimera (High Precision Storyteller)</option>
-          <option value="deepseek/deepseek-r1">DeepSeek R1 (Raw Reasoning)</option>
+          <option value="deepseek/deepseek-r1">DeepSeek R1 (High Precision Reasoner)</option>
+          <option value="tngtech/tng-r1t-chimera">TNG R1t Chimera (Balanced Storyteller)</option>
           <option value="openai/gpt-4o">GPT-4o (Fast & Balanced)</option>
         </select>
       </div>

@@ -43,22 +43,34 @@ DEFINITION:
 - Punctuation does NOT count as part of the word length.
 
 FORMATTING INSTRUCTIONS:
-1. First, you MUST output a <thinking> block where you explicitly plan the sentence structure and list the long words you will use.
-2. Then, output the final text inside <text> tags.
+1. You MUST use a <thinking> block.
+2. Inside <thinking>, you must DRAFT the text sentence by sentence.
+3. For EACH sentence in the draft, you must explicitly count the words and long words.
+   Example: "Sentence 1: The fast fox jumps. (4 words, 0 long words)"
+4. Sum up the counts to verify they match the constraints.
+5. If they do not match, REWRITE the draft in the thinking block until they match.
+6. ONLY once the counts match exactly, output the final text inside <text> tags.
 
-Example:
+Example Structure:
 <thinking>
-I need 5 sentences and 3 long words.
-Sentence 1: ... (0 long words)
-Sentence 2: ... (use 'beautiful' - 9 letters)
+Target: 5 sentences, 3 long words.
+Draft 1:
+- S1: ... (count: X words, Y long)
+- S2: ...
 ...
+Total: 25 words, 2 long words.
+Mismatch! I need 1 more long word.
+Draft 2:
+- S1: ...
+...
+Total: 25 words, 3 long words. Matches.
 </thinking>
 <text>
 The generated story goes here.
 </text>`;
 
-    // Default to TNG-Chimera if not specified, or use the user's choice (mapped to OpenRouter if possible)
-    const selectedModel = model || 'tngtech/tng-r1t-chimera';
+    // Default to DeepSeek R1 for better reasoning on strict constraints
+    const selectedModel = model || 'deepseek/deepseek-r1';
 
     // Create a stream to send updates to the client
     const stream = new ReadableStream({
@@ -86,7 +98,7 @@ The generated story goes here.
         ];
 
         let attempts = 0;
-        const maxAttempts = 3;
+        const maxAttempts = 5;
         const attemptHistory: Attempt[] = [];
 
         try {
@@ -100,7 +112,7 @@ The generated story goes here.
                 model: selectedModel,
                 messages: messages,
                 max_tokens: 2000,
-                temperature: 0.1, // Lower temperature for precision
+                temperature: 0.0, // Zero temperature for maximum precision
               });
             } catch (err: unknown) {
               const apiError = err as Error;

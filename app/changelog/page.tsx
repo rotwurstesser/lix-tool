@@ -3,6 +3,16 @@ import Link from 'next/link';
 export default function ChangelogPage() {
   const versions = [
     {
+      version: 'v0.3.2',
+      date: '2025-12-29',
+      title: 'Precision Overhaul',
+      changes: [
+        'Switched default model to DeepSeek R1 for superior mathematical reasoning',
+        'Enhanced prompting with explicit sentence/word counting steps',
+        'Increased max retry attempts to 5',
+        'Set temperature to 0.0 for maximum determinism'
+      ]
+    }, {
       version: 'v0.3.1',
       date: '2025-12-29',
       title: 'Build Stability Fix',

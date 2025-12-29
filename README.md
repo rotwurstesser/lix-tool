@@ -9,7 +9,7 @@ Generate texts with specific readability scores using AI. This tool creates educ
 - **Precision LIX Scoring**: Calculates exact readability metrics including sentence count, word count, and long word analysis
 - **Story Generation**: Creates coherent, engaging children's stories on any topic
 - **Multiple Languages**: Generate texts in German, English, French, and Italian
-- **Model Selection**: Choose between TNG R1t Chimera (specialized for constraints), DeepSeek R1, or GPT-4o
+- **Model Selection**: Choose between DeepSeek R1 (High Precision), TNG R1t Chimera (Storyteller), or GPT-4o
 - **Real-time Feedback**: See generation attempts and validation errors in real-time
 - **LIX Balancer**: Adjust the balance between average sentence length and long word percentage
 - **Responsive Design**: Clean, modern UI that works on all devices
@@ -52,7 +52,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - [Next.js 16](https://nextjs.org) - React framework
 - [OpenRouter API](https://openrouter.ai) - AI text generation
-- [TNG Chimera Model](https://openrouter.ai/tngtech/tng-r1t-chimera) - Specialized Storytelling Model
+- [DeepSeek R1](https://openrouter.ai/deepseek/deepseek-r1) - Specialized Reasoning Model
 - [Tailwind CSS 4](https://tailwindcss.com) - Styling
 - [TypeScript](https://www.typescriptlang.org) - Type safety
 
