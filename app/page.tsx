@@ -21,7 +21,7 @@ export default function Home() {
   const [warning, setWarning] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('Waiting for Claude...');
+  const [loadingMessage, setLoadingMessage] = useState('Waiting for AI...');
   const [lastParams, setLastParams] = useState<GenerationParams | null>(null);
 
   const handleGenerate = async (params: GenerationParams) => {
@@ -30,7 +30,7 @@ export default function Home() {
     setAttempts([]);
     setWarning(undefined);
     setError(undefined);
-    setLoadingMessage('Waiting for Claude...');
+    setLoadingMessage('Initializing model...');
     setLastParams(params);
 
     try {
@@ -119,7 +119,7 @@ export default function Home() {
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Generate texts with specific readability scores for educational or testing purposes.
-            Powered by Claude AI.
+            Powered by OpenRouter AI.
           </p>
           <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 text-left max-w-3xl mx-auto">
             <h3 className="font-semibold text-blue-900 mb-2">What is LIX?</h3>

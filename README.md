@@ -1,150 +1,58 @@
 # LIX Text Generator
 
-Generate texts with specific readability scores using AI. This tool creates educational content that precisely matches LIX (Läsbarhetsindex) readability constraints, powered by Claude AI.
+Generate texts with specific readability scores using AI. This tool creates educational content that precisely matches LIX (Läsbarhetsindex) readability constraints, powered by OpenRouter AI.
 
-**🌐 Live Demo:** https://remarkable-platypus-e70326.netlify.app
-
-## What is LIX?
-
-LIX (Läsbarhetsindex) is a readability index that indicates the difficulty of reading a text. It's calculated as:
-
-```
-LIX = (words / sentences) + (longWords * 100 / words)
-```
-
-Where:
-- **Words**: Total word count
-- **Sentences**: Number of sentences (ending with `.`, `!`, or `?`)
-- **Long Words**: Words with more than 6 letters (7+ letters)
-
-### Readability Levels
-
-- **< 30**: Very Easy (Children)
-- **30 - 40**: Easy (Fiction)
-- **40 - 50**: Medium (Newspaper)
-- **> 50**: Hard (Academic)
+![LIX Generator Screenshot](/screenshot.png)
 
 ## Features
 
-- **Precise Constraint Matching**: Uses advanced prompt engineering to generate texts that match exact LIX scores
-- **Multi-Attempt Generation**: Automatically retries up to 3 times with detailed feedback to meet constraints
-- **Real-Time Progress**: Stream updates showing each attempt and validation results
-- **Error Handling**: Comprehensive error reporting with retry functionality
-- **Multiple Languages**: Generate texts in any language supported by Claude
-- **Model Selection**: Choose between Claude Opus 4.1, Claude Sonnet 4.5, or Claude Haiku 4.5
-- **Interactive Editing**: Edit LIX calculation parameters directly in the results
+- **Precision LIX Scoring**: Calculates exact readability metrics including sentence count, word count, and long word analysis
+- **Story Generation**: Creates coherent, engaging children's stories on any topic
+- **Multiple Languages**: Generate texts in German, English, French, and Italian
+- **Model Selection**: Choose between TNG R1t Chimera (specialized for constraints), DeepSeek R1, or GPT-4o
+- **Real-time Feedback**: See generation attempts and validation errors in real-time
+- **LIX Balancer**: Adjust the balance between average sentence length and long word percentage
+- **Responsive Design**: Clean, modern UI that works on all devices
 
-## Recent Improvements
-
-### Error Handling (Latest)
-- Fixed issue where generation errors weren't displayed to users
-- Proper stream error handling with user-friendly error messages
-- Added "Try Again" button when errors occur
-
-### Prompt Engineering (Latest)
-Applied chain-of-thought and structured generation best practices:
-- Step-by-step process with numbered instructions
-- Pre-selection of long words with letter counting
-- Mandatory verification before submission
-- Clear definitions with examples
-- Detailed error feedback with specific guidance on how to fix issues
-- Emphasis on precision over creativity
-
-These improvements dramatically increase the accuracy of constraint matching, especially for the critical long word count metric.
-
-## Setup
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+
-- npm, yarn, pnpm, or bun
-- Anthropic API key
+- Node.js 18+
+- OpenRouter API Key
 
 ### Installation
 
-1. Clone the repository:
+1. Get an API key from [OpenRouter](https://openrouter.ai/)
+2. Clone the repository
+3. Install dependencies: `npm install`
+4. Add your OpenRouter API key to `.env.local`:
+
 ```bash
-git clone https://github.com/rotwurstesser/lix-tool.git
-cd lix-tool
+OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Set up environment variables:
-```bash
-cp env.example .env.local
-```
-
-4. Add your Anthropic API key to `.env.local`:
-```
-ANTHROPIC_API_KEY=your_api_key_here
-# or
-LIX_ANTHROPIC_KEY=your_api_key_here
-```
-
-### Development
-
-Run the development server:
+5. Run the development server:
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Build
+## How it works
 
-```bash
-npm run build
-npm start
-```
-
-## How It Works
-
-1. **User Input**: Enter topic, target LIX score, sentence count, and language
-2. **Constraint Calculation**: System calculates required word count and long word count
-3. **AI Generation**: Claude generates text using structured chain-of-thought prompting
-4. **Validation**: System validates sentence count and long word count
-5. **Retry Loop**: If constraints aren't met, detailed feedback is provided and generation retries (up to 3 attempts)
-6. **Results**: Display generated text with actual LIX score and generation history
-
-## Technical Details
-
-### Prompt Engineering
-
-The system uses advanced prompt engineering techniques:
-
-- **Chain-of-Thought**: Forces step-by-step reasoning and planning
-- **Pre-Selection**: Requires listing exact long words before writing
-- **Self-Verification**: Mandatory counting and verification step
-- **Structured Output**: Uses XML tags (`<thinking>` and `<text>`) to separate reasoning from output
-- **Detailed Feedback**: Provides specific guidance on constraint violations
-
-### Validation
-
-The system validates:
-- Sentence count (exact match required)
-- Long word count (exact match required, words with 7+ letters)
-- Total word count (approximate target)
-
-### API
-
-Built with Next.js App Router:
-- `POST /api/generate`: Streaming endpoint for text generation
-- Supports Claude 4.5 models (Opus 4.1, Sonnet 4.5, Haiku 4.5)
-- Real-time streaming updates for each generation attempt
-
-## Contributing
-
-Improvements? You can fork this project on GitHub and submit pull requests!
+1. **Input Parameters**: User sets topic, target LIX score, number of sentences, and language.
+2. **Formula Calculation**: The app calculates the required average sentence length and percentage of long words (7+ chars).
+3. **AI Generation**: The specialized model generates text using structured chain-of-thought prompting (`<thinking>` tags) to plan exact word counts.
+4. **Validation**: The app verifies the output against the strict mathematical constraints.
+5. **Auto-Correction**: If the output is incorrect, it feeds the specific error back to the model and retries automatically (up to 3 times).
 
 ## Tech Stack
 
 - [Next.js 16](https://nextjs.org) - React framework
-- [Anthropic Claude API](https://www.anthropic.com) - AI text generation
+- [OpenRouter API](https://openrouter.ai) - AI text generation
+- [TNG Chimera Model](https://openrouter.ai/tngtech/tng-r1t-chimera) - Specialized Storytelling Model
 - [Tailwind CSS 4](https://tailwindcss.com) - Styling
 - [TypeScript](https://www.typescriptlang.org) - Type safety
 

@@ -118,8 +118,8 @@ export default function GeneratorForm({ onSubmit, isLoading, loadingMessage }: G
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
         >
           <option value="tngtech/tng-r1t-chimera">TNG R1t Chimera (High Precision Storyteller)</option>
-          <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Balanced)</option>
-          <option value="anthropic/claude-3-opus">Claude 3 Opus (Reasoning)</option>
+          <option value="deepseek/deepseek-r1">DeepSeek R1 (Raw Reasoning)</option>
+          <option value="openai/gpt-4o">GPT-4o (Fast & Balanced)</option>
         </select>
       </div>
 
