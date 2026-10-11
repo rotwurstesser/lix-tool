@@ -22,7 +22,9 @@
 
 # misc
 .DS_Store
+._*
 *.pem
+*.log
 
 # debug
 npm-debug.log*
@@ -41,12 +43,10 @@ yarn-error.log*
 next-env.d.ts
 
 # local runs
-experiments/*.log
-experiments/runs/**/*.log
 __pycache__/
 
-# tauri
-/src-tauri/target/
+# tauri / rust
+target/
 /src-tauri/gen/schemas/
 
 # bundled Ollama (npm run fetch-ollama)

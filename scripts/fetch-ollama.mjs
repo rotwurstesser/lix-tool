@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Puts the Ollama release into src-tauri/resources/ollama for the app bundle.
 // Verifies the sha256 of the release tarball. Skips when the right version is already there.
-// Local cache: LIX_OLLAMA_TGZ=<path>, else /Volumes/T7/lix-ollama/dl/ollama-darwin.tgz if present, else download.
+// Local cache: set LIX_OLLAMA_TGZ=<path to ollama-darwin.tgz> to skip the download.
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url';
 const VERSION = 'v0.40.0';
 const SHA256 = 'b490b4925a95c5f3dfcd889e566cf3dcd727848d59057fb00b03f1d6630326dc';
 const URL = `https://github.com/ollama/ollama/releases/download/${VERSION}/ollama-darwin.tgz`;
-const CACHE = '/Volumes/T7/lix-ollama/dl/ollama-darwin.tgz';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dest = join(root, 'src-tauri/resources/ollama');
@@ -52,7 +51,7 @@ async function main() {
   await rm(work, { recursive: true, force: true });
   await mkdir(work, { recursive: true });
 
-  let tgz = process.env.LIX_OLLAMA_TGZ || (existsSync(CACHE) ? CACHE : '');
+  let tgz = process.env.LIX_OLLAMA_TGZ || '';
   if (!tgz) {
     tgz = join(work, 'ollama-darwin.tgz');
     await download(tgz);

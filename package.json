@@ -1,6 +1,12 @@
 {
-  "name": "lix-tool",
+  "name": "lix-writer",
   "version": "0.1.0",
+  "description": "Mac app that writes German reading texts at a target LIX readability level with a local model.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rotwurstesser/lix-tool.git"
+  },
   "private": true,
   "scripts": {
     "dev": "next dev",

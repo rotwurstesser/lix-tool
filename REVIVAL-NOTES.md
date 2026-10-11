@@ -12,9 +12,9 @@ It is pure counting, so code can compute it exactly. No model is needed to *meas
 - LLMs see tokens, not letters. Counting letters per word and planning counts across a whole text is their weak spot.
 - The app needed a 70B reasoning model on OpenRouter plus long `<thinking>` blocks: slow and costly.
 
-## Live probe (home Mac, local gpt-oss:20b, 6 sentences, German)
+## Live probe (local gpt-oss:20b, 6 sentences, German)
 
-Script: session scratchpad `lix_probe.py` (one-shot vs sentence by sentence; code holds the budget).
+Throwaway probe script, not kept (one-shot vs sentence by sentence; code holds the budget).
 
 | Target | One-shot | Sentence by sentence (code budget, ≤4 retries per sentence) |
 |---|---|---|
@@ -29,12 +29,12 @@ Script: session scratchpad `lix_probe.py` (one-shot vs sentence by sentence; cod
 
 1. **Plan, write, then fix (recommended):** model writes a good story near the level (plot outline first). Code computes LIX per sentence. Code picks the cheapest edits (split or merge a sentence, swap a long word for a short synonym or the other way round) and asks the model for only that one edit. Small, local edits keep grammar intact.
 2. **Sentence by sentence with budget (probed above):** exact, but needs a plot outline and a stronger model for clean German.
-3. **Constrained decoding (local only):** llama.cpp grammars (GBNF) can force word lengths during generation (e.g. a "short words only" sentence). Exact by construction, but German compounds make it hard to keep it natural. `llama-server` is installed on the home Mac.
+3. **Constrained decoding (local only):** llama.cpp grammars (GBNF) can force word lengths during generation (e.g. a "short words only" sentence). Exact by construction, but German compounds make it hard to keep it natural. `llama-server` is available locally.
 4. **Overgenerate and pick:** write 5-10 candidate sentences locally, code picks the best fit. Cheap with a small model.
 
 ## Cost
 
-- Fully local on the Mac Studio: 0 API cost (Ollama models present: gpt-oss 20B, qwen3-coder 30B, qwen3-coder-next, minimax-m2.5, glm-5).
+- Fully local on the dev Mac: 0 API cost (Ollama models present: gpt-oss 20B, qwen3-coder 30B, qwen3-coder-next, minimax-m2.5, glm-5).
 - Hosted: designs 1 and 2 need only short calls, so a cheap small model works. No 70B reasoning model needed.
 
 ## Jev?
@@ -45,7 +45,6 @@ No. Jev writes no text, and LIX is exact math, so no classifier is needed. At mo
 
 - Sentence split on `.` breaks on abbreviations ("z.B.", "Dr.") and numbers ("3.5").
 - Hyphenated and numeric tokens count as words; check against the target definition.
-- Local folder `~/dev/lix-tool` has no `.git`; same code as GitHub `rotwurstesser/lix-tool` (checked `lix-calculator.ts`).
 
 ## Research (published designs)
 
@@ -99,9 +98,9 @@ Next options:
 | gpt-oss 20B (13 GB) | 15/15 | 0.31 | 9 | 25 | 4 ("Klap‑Klap", "Bahnhofstation", "trifften", "Schmerzlinderungstropfen") |
 | qwopus 9B coder (5.6 GB) | not run: Ollama cannot load the model file ("unable to load model"); also a coder model, poor test subject | | | | |
 
-Small-model test still open: needs a download (e.g. Gemma 3 4B/12B or Qwen3 8B, 3-8 GB). Apple on-device model: German supported, but Apple Intelligence is off on the home Mac.
+Small-model test still open: needs a download (e.g. Gemma 3 4B/12B or Qwen3 8B, 3-8 GB). Apple on-device model: German supported, but Apple Intelligence is off on the dev Mac.
 
-## Standalone app for a friend's Mac (plan, not built)
+## Standalone Mac app (plan at the time)
 
 - Pattern from Handy (cjpais/Handy, Tauri + Rust): model downloaded on first use into the app data folder, sha256 check, resumable download (`src-tauri/src/managers/model.rs`); optional Apple Intelligence backend via Swift FFI (`apple_intelligence.rs`).
 - For us: Tauri shell around the existing UI, bundled `llama-server` sidecar (health check, free port, kill on exit), GGUF download on first run; Apple on-device model as zero-download option.
@@ -141,16 +140,16 @@ Shortlist (Ollama tags verified on ollama.com 2026-10-11, all Apache 2.0, need a
 
 ### Gemma 4 run paused (2026-10-11)
 
-Setup: separate Ollama 0.40.0 on T7 (`/Volumes/T7/lix-ollama/`, checksum verified), models in `/Volumes/T7/lix-ollama/models`, port 11435. Main brew Ollama 0.15.6 untouched. Generator URL via env `LIX_OLLAMA`.
+Setup: separate Ollama 0.40.0 on an external disk (`$LIX_OLLAMA_DIR`, checksum verified), models in `$LIX_OLLAMA_DIR/models`, port 11435. Main brew Ollama 0.15.6 untouched. Generator URL via env `LIX_OLLAMA`.
 Smoke test gemma4:e2b-it-qat: LIX 29.9 (target 30), hit, 37 calls, 30 s; German slips ("das vielleicht Finn sein Geräusch war").
-gemma4:e2b full run finished before the pause: 59/60 hit (98%), MAE 0.43, judge-flagged 36/60 (noisy judge), median 24 calls / 21 s, 0 errors (`runs/heldout-gemma4-e2b/`). gemma4:e4b is pulled on T7; its run was paused on Raphael's request (fan noise), partial in `runs/heldout-gemma4-e4b-partial/`. Resume tomorrow:
-1. `OLLAMA_HOST=127.0.0.1:11435 OLLAMA_MODELS=/Volumes/T7/lix-ollama/models /Volumes/T7/lix-ollama/bin/ollama serve`
+gemma4:e2b full run finished before the pause: 59/60 hit (98%), MAE 0.43, judge-flagged 36/60 (noisy judge), median 24 calls / 21 s, 0 errors (`runs/heldout-gemma4-e2b/`). gemma4:e4b is pulled; its run was paused (fan noise), partial in `runs/heldout-gemma4-e4b-partial/`. Resume tomorrow:
+1. `OLLAMA_HOST=127.0.0.1:11435 OLLAMA_MODELS=$LIX_OLLAMA_DIR/models $LIX_OLLAMA_DIR/bin/ollama serve`
 2. `LIX_OLLAMA=http://127.0.0.1:11435 python3 -I batch_eval.py runs/heldout-gemma4-e4b qwen2.5:72b-instruct-q4_K_M heldout 2 gemma4:e4b-it-qat`
 Pending: LanguageTool install approval (grammar recheck).
 
 ### LanguageTool recheck (2026-10-11)
 
-LanguageTool 6.8 (brew, Raphael approved), local server on port 8081, `experiments/ltcheck.py`, results in `experiments/LTCHECK.md`.
+LanguageTool 6.8 (brew), local server on port 8081, `experiments/ltcheck.py`, results in `experiments/LTCHECK.md`.
 Sanity: catches "dem Hase", "schritt für Schritt", "wohlwärmer", "habe ... gegangen"; no flag on a correct sentence.
 
 | Model | Hit | Texts with grammar error (LT) | Invented words (typo flags minus names) |
@@ -165,7 +164,7 @@ Conclusion: real grammar rate is about 5-8% of texts, not 50-80% as the LLM judg
 
 `runs/heldout-gemma4-e4b/`: 55/60 hit (92%), MAE 0.28, median 22.5 calls / 28.5 s, 0 errors. LanguageTool: 4/60 texts with grammar error. Invented words: Rauchstupser, Stolperereien, Zimtes, Keksbäcker-Backofen, schieferbedeckte (mix of real errors and valid rare compounds).
 Verdict: e4b is not better than e2b (lower hit rate, slower, more invented words), so it brings no gain for its +1.8 GB. Light model = gemma4:e2b-it-qat.
-Servers stopped after the run (T7 Ollama, LanguageTool).
+Servers stopped after the run (separate Ollama, LanguageTool).
 
 ### TypeScript eval runner, held-out (2026-10-11)
 
@@ -176,7 +175,7 @@ Note: the TS loop writes 10 sentences and counts the title in LIX. The Python ru
 |---|---|---|---|---|---|---|---|---|---|
 | gemma4:e2b-it-qat | 60 | 49/60 (82%) | 0.78 | 6/60 | 60/60 | 35 | 30 | 0 | FAIL |
 
-Verdict: gate FAIL on hit rate (82% < 90%); grammar passes (6/60 = 10%, at the limit). Misses sit at target 25 (10/20 hit; 35: 19/20, 45: 20/20), mostly LIX 26-28 with 11-12 sentences. Typos 60/60 = Swiss "ss" spelling (grossen, Spass) plus names under de-DE, not real errors. Slice 3 is on hold until this is resolved.
+Verdict: gate FAIL on hit rate (82% < 90%); grammar passes (6/60 = 10%, at the limit). Misses sit at target 25 (10/20 hit; 35: 19/20, 45: 20/20), mostly LIX 26-28 with 11-12 sentences. Typos 60/60 = Swiss "ss" spelling (grossen, Spass) plus names under de-DE, not real errors. The app integration is on hold until this is resolved.
 
 v2 fix (lib/generate, tuned on the dev set only):
 - Draft prompt: words-per-sentence hint = max(5, round(target − 17)) below LIX 35 (target / 2 from 35, no jump at 35); below LIX 30 it also asks for short, simple words (mostly ≤ 6 letters). target − 20 was tried first: on dev, drafts for target 25 started too low (LIX 10-22) and 3/5 hit; target − 17 hit 10/10 at target 25 on dev.
@@ -189,9 +188,9 @@ v2 fix (lib/generate, tuned on the dev set only):
 | held-out v2 (`runs/heldout-ts-gemma4-e2b-v2/`) | 60 | 56/60 (93%) | 0.30 | 5/60 | 57/60 | 19 | 14 | 0 | PASS |
 
 Held-out per target, v1 → v2: 25: 10/20 → 19/20; 35: 19/20 → 17/20; 45: 20/20 → 20/20. Median calls 35 → 19, secs 30 → 14.
-Verdict v2: gate PASS (93% hit, 5/60 = 8% LT-flagged). 3 of 4 misses are at target 35 with 12 sentences (band limit blocks more splits). Slice 3 can start.
+Verdict v2: gate PASS (93% hit, 5/60 = 8% LT-flagged). 3 of 4 misses are at target 35 with 12 sentences (band limit blocks more splits). The app integration can start.
 
-### LanguageTool in the app (slice 5, 2026-10-11)
+### LanguageTool in the app (2026-10-11)
 
 Bundle: LanguageTool 6.6 zip (252 MB, sha256 measured by us: languagetool.org publishes none) + Temurin JRE 21.0.12.1+1 aarch64 (48 MB, Adoptium sha256), pinned in `src-tauri/resources/grammar-manifest.json`. Downloaded on consent into `<app data>/grammar/`, sha256 checked while streaming, unpacked, archives deleted. Unpacked size about 560 MB (LanguageTool 405 MB with all languages, JRE 158 MB); the setup text says "about 300 MB" (the download).
 Language: de-CH. Checked on LT 6.6: accepts "grossen" and "Spass", flags "Er gab dem Hase eine Karotte." as DE_AGREEMENT (GRAMMAR), same "habe ... gegangen" catch as de-DE. So no de-DE fallback is needed.
@@ -220,4 +219,4 @@ Loop checker: bundled LT 6.6 de-CH (`grammar_cli --serve`). Judge: brew LT 6.8 d
 
 Per target: 25: 20/20, 35: 18/20, 45: 20/20. Both misses: target 35, LIX 36, 12 sentences (band limit, as in v2). Repair calls in 7 of 60 texts (9 calls). The loop left findings in 4 texts; the judge flagged 3 of them (NACHDEM_PRAETERITUM "fühlte", DE_AGREEMENT "Ein freundlicher Giraffe", DAS_BESTE "schönste"): the 2B model did not fix them in 2 rounds. These remain in the result as `grammarIssues` for underlines.
 
-App live run (debug build, `LIX_APP_DATA` on T7, `LIX_AUTOTEST`): setup grammar step → Add → installed (from the T7 cache) → generator → one generation with LanguageTool (LIX 31.9, miss; second run 30.4 hit). With keep-alive 30s: LanguageTool gone 32 s after the last check, `/api/ps` empty. Quit while LanguageTool ran: no Ollama, llama-server or java process left. Second setup run without the cache: real download from GitHub and languagetool.org, sha256 checked, installed in about 70 s. Remove in the generator's grammar card deleted `<app data>/grammar`. JVM RSS in the app: 763 MB peak.
+App live run (debug build, `LIX_APP_DATA` on an external disk, `LIX_AUTOTEST`): setup grammar step → Add → installed (from a local cache) → generator → one generation with LanguageTool (LIX 31.9, miss; second run 30.4 hit). With keep-alive 30s: LanguageTool gone 32 s after the last check, `/api/ps` empty. Quit while LanguageTool ran: no Ollama, llama-server or java process left. Second setup run without the cache: real download from GitHub and languagetool.org, sha256 checked, installed in about 70 s. Remove in the generator's grammar card deleted `<app data>/grammar`. JVM RSS in the app: 763 MB peak.

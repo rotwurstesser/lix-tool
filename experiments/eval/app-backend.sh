@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Live checks for the app backend (slice 4), without the GUI.
+# Live checks for the app backend, without the GUI.
 # Drives src-tauri/examples/backend_cli.rs and talks to the bundled Ollama with curl.
 #
 # Usage: experiments/eval/app-backend.sh <check> [args]

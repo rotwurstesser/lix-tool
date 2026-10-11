@@ -4,6 +4,17 @@ LIX Writer is a Mac app that writes short German reading texts for children at a
 
 Everything runs on your Mac. After the first setup the app works without internet.
 
+**[Download for Mac](https://github.com/rotwurstesser/lix-tool/releases/latest)** (Apple chip, macOS 14+) · **[Handbuch auf Deutsch](HANDBUCH.md)**
+
+<p>
+  <img src="docs/screenshots/generator.png" width="49%" alt="Topic, LIX and sentences">
+  <img src="docs/screenshots/result-dark.png" width="49%" alt="Generated text with LIX analysis">
+</p>
+<p>
+  <img src="docs/screenshots/result-sheet.png" width="49%" alt="Reading sheet options">
+  <img src="docs/screenshots/reading-sheet.png" width="35%" alt="Printed reading sheet">
+</p>
+
 LIX (Läsbarhetsindex) = words per sentence + percentage of long words (more than 6 letters). Below 30 is very easy, 30 to 40 is easy, 40 to 50 is medium.
 
 ## For teachers
@@ -16,7 +27,7 @@ LIX (Läsbarhetsindex) = words per sentence + percentage of long words (more tha
 
 ### Install
 
-1. Get the file `LIX Writer_0.1.0_aarch64.dmg`.
+1. Download `LIX Writer_0.1.0_aarch64.dmg` from the [latest release](https://github.com/rotwurstesser/lix-tool/releases/latest).
 2. Double-click it. A window opens.
 3. Drag **LIX Writer** onto the **Applications** folder.
 4. Open **LIX Writer** from your Applications folder.

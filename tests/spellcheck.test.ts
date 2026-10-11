@@ -8,6 +8,6 @@ describe.skipIf(process.platform !== 'darwin')('tools/spellcheck.swift', () => {
   });
 
   // NSSpellChecker accepts this compound in every German variant (checked 2026-10-11).
-  // LanguageTool catches it (parent spec §2); that check comes in slice 5.
+  // LanguageTool catches it (see the grammar check), the spell checker alone cannot.
   it.todo('flags "wohlwärmer"');
 });

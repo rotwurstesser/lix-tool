@@ -2,6 +2,8 @@
 name = "lix-writer"
 version = "0.1.0"
 description = "LIX Writer"
+license = "MIT"
+repository = "https://github.com/rotwurstesser/lix-tool"
 edition = "2021"
 
 [lib]
