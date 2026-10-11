@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import GeneratorForm from '@/components/GeneratorForm';
+import GrammarSetting from '@/components/GrammarSetting';
 import ResultDisplay from '@/components/ResultDisplay';
 import Setup from '@/components/Setup';
 import { backendStatus, DEFAULT_KEEP_ALIVE, getSettings, restartBackend, waitForBackend, type Settings } from '@/lib/backend';
 import { OllamaClient } from '@/lib/generate/client';
 import { generateText, type GenerateResult, type LoopEvent } from '@/lib/generate/loop';
 import { browserSpellChecker } from '@/lib/generate/spell-tauri';
+import { grammarChecker } from '@/lib/grammar';
 import { MODEL, ModelManager } from '@/lib/model-manager';
 import { restartPhase, startupPhase, type Phase, type StartupDeps } from '@/lib/startup';
 import { debugAutotestTopic, debugLog } from '@/lib/tauri';
@@ -18,6 +20,7 @@ const STEP_LABELS: Record<LoopEvent['type'], string> = {
   title: 'Title',
   edit: 'Edit',
   grammar: 'Grammar pass',
+  repair: 'Grammar repair',
   done: 'Done',
 };
 
@@ -131,9 +134,11 @@ function Generator({ url, keepAlive, onBackendLost }: { url: string; keepAlive: 
     setLastParams(params);
 
     try {
+      // LanguageTool when installed, else the model's own grammar check.
+      const grammar = await grammarChecker();
       const res = await generateText(
         { topic: params.topic, targetLix: params.lix, sentences: params.sentences, tolerance: params.tolerance },
-        { client: new OllamaClient(url, MODEL, keepAlive), spell: browserSpellChecker() },
+        { client: new OllamaClient(url, MODEL, keepAlive), spell: browserSpellChecker(), grammar },
         (e) => {
           setProgress(progressText(e));
           if ((e.type === 'title' || e.type === 'edit' || e.type === 'grammar') && e.lix !== undefined) {
@@ -179,7 +184,10 @@ function Generator({ url, keepAlive, onBackendLost }: { url: string; keepAlive: 
       const res = await handleGenerate({ topic, lix: 30, sentences: 10, tolerance: 0.5 });
       const secs = Math.round((Date.now() - t0) / 1000);
       if (res) {
-        debugLog(`autotest done lix=${res.lix} hit=${res.hit} sentences=${res.sentences.length} unknown=${res.unknownWords.length} secs=${secs} title=${res.title}`);
+        debugLog(
+          `autotest done lix=${res.lix} hit=${res.hit} sentences=${res.sentences.length} unknown=${res.unknownWords.length} ` +
+            `repairs=${res.repairs} grammarIssues=${res.grammarIssues.length} secs=${secs} title=${res.title}`,
+        );
       } else {
         debugLog(`autotest failed secs=${secs}`);
       }
@@ -265,6 +273,8 @@ function Generator({ url, keepAlive, onBackendLost }: { url: string; keepAlive: 
             onRetry={() => handleGenerate(lastParams)}
           />
         )}
+
+        <GrammarSetting disabled={isLoading} />
 
         <footer className="mt-16 pt-8 border-t border-gray-200 text-center">
           <p className="text-xs text-gray-500">

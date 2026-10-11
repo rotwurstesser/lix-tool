@@ -27,12 +27,18 @@ describe('parseArgs', () => {
       out: 'runs/x',
       grammar: 'languagetool',
       lt: 'http://localhost:9000',
+      ltLoop: 'http://localhost:9000',
     });
   });
 
   it('fills defaults', () => {
     const a = parseArgs(['--set', 'dev', '--model', 'm', '--out', 'o']);
-    expect(a).toMatchObject({ repeats: 1, targets: [25, 35, 45], sentences: 10, grammar: 'model', lt: 'http://127.0.0.1:8081' });
+    expect(a).toMatchObject({ repeats: 1, targets: [25, 35, 45], sentences: 10, grammar: 'model', lt: 'http://127.0.0.1:8081', ltLoop: 'http://127.0.0.1:8081' });
+  });
+
+  it('takes a separate server for the in-loop checker', () => {
+    const a = parseArgs(['--set', 'dev', '--model', 'm', '--out', 'o', '--lt-loop', 'http://127.0.0.1:8181']);
+    expect(a).toMatchObject({ lt: 'http://127.0.0.1:8081', ltLoop: 'http://127.0.0.1:8181' });
   });
 
   it.each([

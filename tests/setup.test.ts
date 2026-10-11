@@ -9,6 +9,11 @@ describe('setup state machine', () => {
 
   it('resumes an aborted setup at the model step', () => {
     expect(initialStep('model', false)).toBe('model');
+    expect(initialStep('grammar', false)).toBe('model');
+  });
+
+  it('resumes at the grammar question when the model is there', () => {
+    expect(initialStep('grammar', true)).toBe('grammar');
   });
 
   it('asks for the model again when it is gone', () => {
@@ -21,10 +26,12 @@ describe('setup state machine', () => {
     expect(initialStep('ready', true)).toBe('ready');
   });
 
-  it('walks welcome → model → ready → done', () => {
+  it('walks welcome → model → grammar → ready → done', () => {
     let s = nextStep('welcome', 'start');
     expect(s).toBe('model');
     s = nextStep(s, 'modelInstalled');
+    expect(s).toBe('grammar');
+    s = nextStep(s, 'grammarDone');
     expect(s).toBe('ready');
     s = nextStep(s, 'finish');
     expect(s).toBe('done');
@@ -35,10 +42,14 @@ describe('setup state machine', () => {
     expect(nextStep('done', 'start')).toBe('done');
     expect(nextStep('model', 'finish')).toBe('model');
     expect(nextStep('done', 'modelMissing')).toBe('model');
+    expect(nextStep('grammar', 'modelMissing')).toBe('model');
+    expect(nextStep('grammar', 'finish')).toBe('grammar');
+    expect(nextStep('model', 'grammarDone')).toBe('model');
   });
 
   it('knows its steps', () => {
     expect(isSetupStep('ready')).toBe(true);
-    expect(isSetupStep('grammar')).toBe(false);
+    expect(isSetupStep('grammar')).toBe(true);
+    expect(isSetupStep('languagetool')).toBe(false);
   });
 });

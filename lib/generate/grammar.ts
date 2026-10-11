@@ -2,9 +2,15 @@ import type { LlmClient } from './client.ts';
 import { grammarCheckPrompt } from './prompts.ts';
 
 export interface GrammarIssue {
+  // Sentence index.
   index: number;
   message: string;
   snippet: string;
+  // LanguageTool only: position inside the sentence, rule and suggested fixes.
+  offset?: number;
+  length?: number;
+  ruleId?: string;
+  replacements?: string[];
 }
 
 export interface GrammarCheckOptions {

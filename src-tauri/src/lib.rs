@@ -1,4 +1,5 @@
 pub mod backend;
+pub mod grammar;
 pub mod settings;
 mod spell;
 
@@ -8,9 +9,10 @@ pub use spell::unknown_words;
 mod debug;
 
 use backend::{Backend, Config, Status};
+use grammar::Grammar;
 use serde_json::{Map, Value};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, RunEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent};
 
 #[tauri::command]
 fn backend_status(backend: tauri::State<Backend>) -> Status {
@@ -50,10 +52,54 @@ fn settings_get(backend: tauri::State<Backend>) -> Map<String, Value> {
 }
 
 #[tauri::command]
-fn settings_set(backend: tauri::State<Backend>, patch: Map<String, Value>) -> Result<Map<String, Value>, String> {
+fn settings_set(backend: tauri::State<Backend>, grammar: tauri::State<Grammar>, patch: Map<String, Value>) -> Result<Map<String, Value>, String> {
     let all = settings::merge(&backend.config().app_data, patch)?;
-    backend.set_keep_alive(settings::keep_alive(&backend.config().app_data));
+    let keep_alive = settings::keep_alive(&backend.config().app_data);
+    grammar.set_idle(grammar::idle_from_keep_alive(&keep_alive));
+    backend.set_keep_alive(keep_alive);
     Ok(all)
+}
+
+#[tauri::command]
+fn grammar_status(grammar: tauri::State<Grammar>) -> grammar::Status {
+    grammar.status()
+}
+
+/// Starts the LanguageTool download in the background; progress comes as "grammar-status" events.
+#[tauri::command]
+fn grammar_install(grammar: tauri::State<Grammar>) -> grammar::Status {
+    grammar.install_async();
+    grammar.status()
+}
+
+#[tauri::command]
+fn grammar_cancel(grammar: tauri::State<Grammar>) {
+    grammar.cancel_install();
+}
+
+/// Stops LanguageTool and deletes its files.
+#[tauri::command(async)]
+fn grammar_remove(grammar: tauri::State<'_, Grammar>) -> Result<grammar::Status, String> {
+    grammar.remove()?;
+    Ok(grammar.status())
+}
+
+#[tauri::command(async)]
+fn grammar_disk_bytes(grammar: tauri::State<'_, Grammar>) -> u64 {
+    grammar.disk_bytes()
+}
+
+/// Starts LanguageTool if it does not run (the app warms it up while the model drafts). Returns the port.
+#[tauri::command(async)]
+fn grammar_ensure_running(grammar: tauri::State<'_, Grammar>) -> Result<u16, String> {
+    grammar.ensure_running()
+}
+
+/// Checks a text with LanguageTool (started on demand) and returns its JSON reply.
+#[tauri::command(async)]
+fn grammar_check(grammar: tauri::State<'_, Grammar>, text: String, language: String, disabled_rules: Option<Vec<String>>) -> Result<Value, String> {
+    let reply = grammar.check(&text, &language, &disabled_rules.unwrap_or_default())?;
+    serde_json::from_str(&reply).map_err(|e| format!("LanguageTool sent invalid JSON: {e}"))
 }
 
 fn app_data_dir(app: &AppHandle) -> PathBuf {
@@ -62,6 +108,15 @@ fn app_data_dir(app: &AppHandle) -> PathBuf {
         return PathBuf::from(dir);
     }
     app.path().app_data_dir().expect("no app data dir")
+}
+
+/// Debug builds: LIX_GRAMMAR_CACHE=<dir> takes the archives from there (sha256 still checked).
+fn grammar_cache() -> Option<PathBuf> {
+    #[cfg(debug_assertions)]
+    if let Ok(dir) = std::env::var("LIX_GRAMMAR_CACHE") {
+        return Some(PathBuf::from(dir));
+    }
+    None
 }
 
 /// The bundled Ollama binary. `tauri dev` uses src-tauri/resources/ollama.
@@ -90,7 +145,18 @@ pub fn run() {
             app_data,
         });
         backend.start_async();
+        let grammar = Grammar::new(grammar::Config {
+            app_data: backend.config().app_data,
+            manifest: grammar::Manifest::bundled(),
+            cache_dir: grammar_cache(),
+            idle: grammar::idle_from_keep_alive(&backend.config().keep_alive),
+        });
+        let events = handle.clone();
+        grammar.on_change(move |status| {
+            let _ = events.emit("grammar-status", status);
+        });
         app.manage(backend);
+        app.manage(grammar);
         Ok(())
     });
 
@@ -104,6 +170,13 @@ pub fn run() {
         models_disk_bytes,
         settings_get,
         settings_set,
+        grammar_status,
+        grammar_install,
+        grammar_cancel,
+        grammar_remove,
+        grammar_disk_bytes,
+        grammar_ensure_running,
+        grammar_check,
         debug::debug_autotest,
         debug::debug_log
     ]);
@@ -116,15 +189,26 @@ pub fn run() {
         free_disk_bytes,
         models_disk_bytes,
         settings_get,
-        settings_set
+        settings_set,
+        grammar_status,
+        grammar_install,
+        grammar_cancel,
+        grammar_remove,
+        grammar_disk_bytes,
+        grammar_ensure_running,
+        grammar_check
     ]);
 
     builder
         .build(tauri::generate_context!())
         .expect("error while running LIX Writer")
         .run(|app, event| {
-            // Free the model memory and stop Ollama before the app goes away.
+            // Free the model memory and stop Ollama and LanguageTool before the app goes away.
             if let RunEvent::Exit = event {
+                if let Some(grammar) = app.try_state::<Grammar>() {
+                    grammar.cancel_install();
+                    grammar.stop();
+                }
                 if let Some(backend) = app.try_state::<Backend>() {
                     backend.stop();
                 }

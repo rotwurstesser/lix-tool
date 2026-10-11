@@ -344,8 +344,13 @@ fn port_free(port: u16) -> bool {
     TcpListener::bind(addr).is_ok()
 }
 
-/// Minimal HTTP/1.1 request to 127.0.0.1. Returns status code and body.
+/// Minimal HTTP/1.1 request to 127.0.0.1 with a JSON body. Returns status code and body.
 pub fn http(port: u16, method: &str, path: &str, body: Option<&str>, timeout: Duration) -> std::io::Result<(u16, String)> {
+    request(port, method, path, "application/json", body, timeout)
+}
+
+/// Minimal HTTP/1.1 request to 127.0.0.1. Returns status code and body.
+pub fn request(port: u16, method: &str, path: &str, content_type: &str, body: Option<&str>, timeout: Duration) -> std::io::Result<(u16, String)> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let mut stream = TcpStream::connect_timeout(&addr, timeout)?;
     stream.set_read_timeout(Some(timeout))?;
@@ -353,7 +358,7 @@ pub fn http(port: u16, method: &str, path: &str, body: Option<&str>, timeout: Du
     let body = body.unwrap_or("");
     write!(
         stream,
-        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     )?;
     let mut raw = Vec::new();
@@ -383,7 +388,7 @@ fn unload_all(port: u16) {
 }
 
 /// SIGTERM first so Ollama stops its runners, SIGKILL after 5 s.
-fn terminate(child: &mut Child) {
+pub(crate) fn terminate(child: &mut Child) {
     let _ = Command::new("/bin/kill").arg("-TERM").arg(child.id().to_string()).status();
     let deadline = Instant::now() + Duration::from_secs(5);
     while Instant::now() < deadline {
@@ -419,13 +424,13 @@ fn kill_stale(cfg: &Config) {
     }
 }
 
-struct Proc {
+pub(crate) struct Proc {
     pid: u32,
     ppid: u32,
     command: String,
 }
 
-fn process_table() -> Vec<Proc> {
+pub(crate) fn process_table() -> Vec<Proc> {
     let Ok(out) = Command::new("/bin/ps").args(["-axo", "pid=,ppid=,command="]).output() else { return Vec::new() };
     parse_ps(&String::from_utf8_lossy(&out.stdout))
 }
@@ -456,7 +461,7 @@ fn descendants(procs: &[Proc], root: u32) -> Vec<u32> {
 }
 
 /// Processes adopted by launchd whose executable lies under `prefix`.
-fn orphans(procs: &[Proc], prefix: &str) -> Vec<u32> {
+pub(crate) fn orphans(procs: &[Proc], prefix: &str) -> Vec<u32> {
     procs.iter().filter(|p| p.ppid == 1 && p.command.starts_with(prefix)).map(|p| p.pid).collect()
 }
 
@@ -486,13 +491,13 @@ pub fn allocated_bytes(dir: &Path) -> u64 {
         .sum()
 }
 
-fn process_command(pid: u32) -> Option<String> {
+pub(crate) fn process_command(pid: u32) -> Option<String> {
     let out = Command::new("/bin/ps").args(["-p", &pid.to_string(), "-o", "command="]).output().ok()?;
     let cmd = String::from_utf8_lossy(&out.stdout).trim().to_string();
     (!cmd.is_empty()).then_some(cmd)
 }
 
-fn kill_pid(pid: u32) {
+pub(crate) fn kill_pid(pid: u32) {
     let id = pid.to_string();
     let _ = Command::new("/bin/kill").args(["-TERM", &id]).stderr(Stdio::null()).status();
     for _ in 0..30 {
@@ -504,8 +509,8 @@ fn kill_pid(pid: u32) {
     let _ = Command::new("/bin/kill").args(["-KILL", &id]).stderr(Stdio::null()).status();
 }
 
-/// Last lines the Ollama log got since byte `from`, for error messages.
-fn log_tail(path: &Path, from: u64) -> String {
+/// Last lines a log got since byte `from`, for error messages.
+pub(crate) fn log_tail(path: &Path, from: u64) -> String {
     let Ok(bytes) = fs::read(path) else { return String::new() };
     let text = String::from_utf8_lossy(bytes.get(from as usize..).unwrap_or_default());
     let lines: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty()).collect();

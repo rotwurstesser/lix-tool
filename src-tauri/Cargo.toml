@@ -15,6 +15,10 @@ tauri-build = { version = "=2.7.0", features = [] }
 tauri = { version = "=2.12.0", features = [] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
+# LanguageTool download (grammar.rs).
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "blocking"] }
+sha2 = { version = "=0.11.0", default-features = false }
+zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = { version = "=0.3.2", features = ["NSString", "NSRange"] }

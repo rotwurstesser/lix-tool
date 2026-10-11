@@ -4,9 +4,9 @@
 import { countWords, lix, round1, splitSentences, swissSpelling, targetTimeSeconds, words } from '../lix.ts';
 import type { LlmClient } from './client.ts';
 import { bandPenalty, cleanEdit, editOptions, SENTENCE_BAND } from './edits.ts';
-import { type GrammarChecker, ModelGrammarChecker } from './grammar.ts';
+import { type GrammarChecker, type GrammarIssue, ModelGrammarChecker } from './grammar.ts';
 import { parseTitle, parseVariants } from './parse.ts';
-import { draftPrompt, editPrompt, grammarFixPrompt, titlePrompt } from './prompts.ts';
+import { draftPrompt, editPrompt, grammarFixPrompt, grammarRepairPrompt, titlePrompt } from './prompts.ts';
 import { CachedSpellChecker, NoopSpellChecker, type SpellChecker } from './spell.ts';
 
 export const MAX_DRAFTS = 3;
@@ -19,6 +19,8 @@ export function editBudget(gap: number): number {
 }
 // Grammar check: how many improving candidates to try before the fix loop stops.
 export const GRAMMAR_TRIES = 3;
+// Final grammar check (LanguageTool): rounds of repair calls plus LIX repair.
+export const REPAIR_ROUNDS = 2;
 
 interface Candidate {
   score: number;
@@ -41,11 +43,14 @@ export interface LoopDeps {
   spell?: SpellChecker;
   // Default: the model's own JA/NEIN check.
   grammar?: GrammarChecker;
+  // Rounds of the final grammar check and repair. Default: REPAIR_ROUNDS with an own grammar
+  // checker (LanguageTool), 0 with the model check.
+  repairRounds?: number;
   now?: () => number;
 }
 
 export interface LoopEvent {
-  type: 'draft' | 'title' | 'edit' | 'grammar' | 'done';
+  type: 'draft' | 'title' | 'edit' | 'grammar' | 'repair' | 'done';
   lix?: number;
   n?: number;
   elapsedMs: number;
@@ -65,6 +70,10 @@ export interface GenerateResult {
   calls: number;
   rejected: number;
   grammarRejected: number;
+  // Repair calls of the final grammar check.
+  repairs: number;
+  // Findings of the final grammar check that remain (for underlines). Empty without a final check.
+  grammarIssues: GrammarIssue[];
   secs: number;
   unknownWords: string[];
 }
@@ -81,7 +90,7 @@ export async function generateText(
   const now = deps.now ?? Date.now;
   const t0 = now();
   const spell = new CachedSpellChecker(deps.spell ?? new NoopSpellChecker());
-  const stats = { calls: 0, rejected: 0, grammarRejected: 0, edits: 0 };
+  const stats = { calls: 0, rejected: 0, grammarRejected: 0, edits: 0, repairs: 0 };
   let title = '';
 
   const emit = (type: LoopEvent['type'], extra: Omit<LoopEvent, 'type' | 'elapsedMs'> = {}) =>
@@ -170,7 +179,34 @@ export async function generateText(
     return sents;
   };
 
-  const result = (sents: string[], lixPath: number[], unknown: string[]): GenerateResult => {
+  // One repair call per flagged sentence. A repair with unknown or cut words keeps the old sentence.
+  // Returns null when no sentence changed.
+  const repair = async (sents: string[], issues: GrammarIssue[]): Promise<string[] | null> => {
+    const out: string[][] = sents.map((s) => [s]);
+    let changed = false;
+    for (const index of [...new Set(issues.map((i) => i.index))]) {
+      const old = sents[index];
+      stats.repairs++;
+      const fixed = parseVariants(await ask(grammarRepairPrompt(old, issues.filter((i) => i.index === index))))[0];
+      if (!fixed || fixed === old) continue;
+      const split = splitSentences(fixed);
+      const next = split.length ? split : [fixed];
+      await spell.prime(words(next.join(' ')));
+      if (next.length > 2 || !cleanEdit(old, next, (w) => spell.isKnown(w), { allowInflection: true })) {
+        stats.rejected++;
+        continue;
+      }
+      out[index] = next;
+      changed = true;
+    }
+    return changed ? out.flat() : null;
+  };
+
+  // Fewer grammar findings first, then the closer LIX: never trade grammar for LIX.
+  const better = (a: { sents: string[]; issues: GrammarIssue[] }, b: { sents: string[]; issues: GrammarIssue[] }) =>
+    a.issues.length !== b.issues.length ? a.issues.length < b.issues.length : gapOf(a.sents) < gapOf(b.sents);
+
+  const result = (sents: string[], lixPath: number[], unknown: string[], grammarIssues: GrammarIssue[] = []): GenerateResult => {
     const final = sents.length ? lix(sents, { title }) : 0;
     const wordCount = sents.length ? countWords(sents, { title }) : 0;
     return {
@@ -185,6 +221,8 @@ export async function generateText(
       calls: stats.calls,
       rejected: stats.rejected,
       grammarRejected: stats.grammarRejected,
+      repairs: stats.repairs,
+      grammarIssues,
       secs: Math.round((now() - t0) / 1000),
       unknownWords: unknown,
     };
@@ -211,7 +249,34 @@ export async function generateText(
   emit('grammar', { lix: round1(lix(sents, { title })) });
   sents = await fixLoop(sents, true, path);
 
-  const out = result(sents, path, await unknownWords(sents));
+  // Final grammar check: repair flagged sentences, re-check, repair LIX with the grammar rule.
+  const rounds = deps.repairRounds ?? (deps.grammar ? REPAIR_ROUNDS : 0);
+  let issues: GrammarIssue[] = [];
+  if (rounds > 0) {
+    let best = { sents, issues: await grammar.check(sents, { signal }) };
+    let current = best;
+    for (let round = 1; round <= rounds && current.issues.length; round++) {
+      const repaired = await repair(current.sents, current.issues);
+      if (!repaired) break;
+      current = { sents: repaired, issues: await grammar.check(repaired, { signal }) };
+      path.push(round1(lix(current.sents, { title })));
+      emit('repair', { n: round, lix: path[path.length - 1] });
+      if (better(current, best)) best = current;
+      if (gapOf(current.sents) > tolerance) {
+        const relixed = await fixLoop(current.sents, true, path);
+        if (relixed !== current.sents) {
+          current = { sents: relixed, issues: await grammar.check(relixed, { signal }) };
+          if (better(current, best)) best = current;
+        }
+      }
+    }
+    sents = best.sents;
+    issues = best.issues;
+    const final = round1(lix(sents, { title }));
+    if (path[path.length - 1] !== final) path.push(final);
+  }
+
+  const out = result(sents, path, await unknownWords(sents), issues);
   emit('done', { lix: out.lix });
   return out;
 }

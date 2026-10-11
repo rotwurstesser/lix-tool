@@ -1,6 +1,5 @@
 // Shared parts of the TypeScript eval runner: arguments, topic sets, LanguageTool judge, summary math.
 // Same protocol as experiments/batch_eval.py, with LanguageTool (experiments/ltcheck.py) as the judge.
-import type { GrammarCheckOptions, GrammarChecker, GrammarIssue } from '../../lib/generate/grammar.ts';
 
 // Copied verbatim from batch_eval.py.
 export const TOPICS = {
@@ -38,7 +37,10 @@ export interface EvalArgs {
   model: string;
   out: string;
   grammar: GrammarMode;
+  // Judge server (de-DE).
   lt: string;
+  // Server for the in-loop checker with --grammar languagetool (de-CH). Default: the judge server.
+  ltLoop: string;
 }
 
 export const DEFAULT_LT = 'http://127.0.0.1:8081';
@@ -63,7 +65,7 @@ export function parseArgs(argv: string[]): EvalArgs {
     raw[key.slice(2)] = value;
     i++;
   }
-  const known = ['set', 'repeats', 'targets', 'sentences', 'ollama', 'model', 'out', 'grammar', 'lt'];
+  const known = ['set', 'repeats', 'targets', 'sentences', 'ollama', 'model', 'out', 'grammar', 'lt', 'lt-loop'];
   for (const k of Object.keys(raw)) if (!known.includes(k)) throw new Error(`Unknown option --${k}`);
   for (const k of ['set', 'model', 'out']) if (!raw[k]) throw new Error(`--${k} is required`);
   if (!(raw.set in TOPICS)) throw new Error(`--set must be heldout or dev, got "${raw.set}"`);
@@ -81,6 +83,7 @@ export function parseArgs(argv: string[]): EvalArgs {
     out: raw.out,
     grammar,
     lt: raw.lt ?? DEFAULT_LT,
+    ltLoop: raw['lt-loop'] ?? raw.lt ?? DEFAULT_LT,
   };
 }
 
@@ -130,27 +133,6 @@ export function judgeMatches(matches: LtMatch[]) {
   const grammar = matches.filter((m) => LT_GRAMMAR.has(m.rule.category.id));
   const typos = matches.filter((m) => m.rule.category.id === 'TYPOS');
   return { grammar: grammar.length, typos: typos.length, examples: grammar.map(snippet), typoWords: typos.map(snippet) };
-}
-
-// Grammar check inside the loop with LanguageTool instead of the model (--grammar languagetool).
-export class LanguageToolGrammarChecker implements GrammarChecker {
-  private readonly lt: LanguageTool;
-
-  constructor(lt: LanguageTool) {
-    this.lt = lt;
-  }
-
-  async check(sentences: string[], opts: GrammarCheckOptions = {}): Promise<GrammarIssue[]> {
-    const issues: GrammarIssue[] = [];
-    for (const [index, sentence] of sentences.entries()) {
-      for (const m of await this.lt.check(sentence, opts.signal)) {
-        if (!LT_GRAMMAR.has(m.rule.category.id)) continue;
-        issues.push({ index, message: m.message, snippet: snippet(m) });
-        if (opts.firstOnly) return issues;
-      }
-    }
-    return issues;
-  }
 }
 
 export interface ResultRow {
@@ -220,7 +202,7 @@ const opt = (x: number | undefined, digits?: number) =>
 export function summaryMarkdown(args: EvalArgs, s: Summary): string {
   return [
     `Set: ${args.set}, repeats: ${args.repeats}, targets: ${args.targets.join(',')}, sentences: ${args.sentences} ` +
-      `(title counted in LIX), grammar in loop: ${args.grammar}, judge: LanguageTool de-DE ` +
+      `(title counted in LIX), grammar in loop: ${args.grammar === 'languagetool' ? 'languagetool (de-CH, final check + repair)' : 'model'}, judge: LanguageTool de-DE ` +
       `(GRAMMAR, CASING, CONFUSED_WORDS; typos apart; title + text judged). Errors count as misses. ` +
       `Gate: hit ≥ 90% and LT-flagged ≤ 10%.`,
     'Runner: TypeScript loop (lib/generate). Not 1:1 comparable with the Python runs (8 sentences, no title).',

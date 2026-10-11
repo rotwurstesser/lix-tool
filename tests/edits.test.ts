@@ -117,6 +117,21 @@ describe('cleanEdit', () => {
     expect(cleanEdit('Der Fuchs findet den alten Schlüssel im Wald.', ['Der Fuchs findet den Schlüssel.'], isKnown)).toBe(true);
   });
 
+  it('accepts a changed inflection ending only with allowInflection', () => {
+    const k = (w: string) => isKnown(w) || ['Ein', 'freundliche', 'Hund', 'bellt'].includes(w);
+    const old = 'Ein freundlicher Hund bellt.';
+    expect(cleanEdit(old, ['Ein freundliche Hund bellt.'], k)).toBe(false);
+    expect(cleanEdit(old, ['Ein freundliche Hund bellt.'], k, { allowInflection: true })).toBe(true);
+  });
+
+  it('rejects a long word cut short even with allowInflection', () => {
+    expect(
+      cleanEdit('Der Fuchs findet den verlorenen Schlüssel.', ['Der Fuchs findet den verlor Schlüssel.'], isKnown, {
+        allowInflection: true,
+      }),
+    ).toBe(false);
+  });
+
   it('accepts a real word swap', () => {
     expect(cleanEdit('Der Fuchs findet den verlorenen Schlüssel.', ['Der Fuchs findet den alten Schlüssel.'], isKnown)).toBe(true);
   });

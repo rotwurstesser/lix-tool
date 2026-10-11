@@ -49,6 +49,18 @@ export function grammarCheckPrompt(sentence: string): string {
   );
 }
 
+// One LanguageTool finding per line, with its suggested fix when there is one.
+export function grammarRepairPrompt(sentence: string, issues: Array<{ message: string; snippet: string; replacements?: string[] }>): string {
+  const lines = issues.map((i) => {
+    const fix = i.replacements?.length ? ` Vorschlag: „${i.replacements[0]}“.` : '';
+    return `- „${i.snippet}“: ${i.message}${fix}`;
+  });
+  return (
+    `Im folgenden Satz ist ein Fehler.\nSatz: ${sentence}\nFehler:\n${lines.join('\n')}\n\n` +
+    'Korrigiere nur diesen Fehler. Ändere sonst nichts. Gib nur den korrigierten Satz aus.'
+  );
+}
+
 export const INSTRUCTIONS = {
   shortenWord:
     'Schreibe den Satz um. Gleiche Bedeutung, aber ersetze ein langes Wort (mehr als 6 Buchstaben) ' +

@@ -1,17 +1,18 @@
 // Headless eval of the TypeScript generation loop. Same protocol as experiments/batch_eval.py.
 // Usage: node experiments/eval/run.ts --set heldout|dev --repeats N --targets 25,35,45 --sentences 10
-//          --ollama URL --model TAG --out DIR [--grammar model|languagetool] [--lt URL]
+//          --ollama URL --model TAG --out DIR [--grammar model|languagetool] [--lt URL] [--lt-loop URL]
+// --lt is the judge (de-DE); --lt-loop the server the loop checks with (de-CH), default the judge server.
 // Writes one JSON line per story to DIR/results.jsonl and DIR/SUMMARY.md. DIR must not hold an earlier run.
 // Exit code 1 on gate FAIL, 2 on a setup error.
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OllamaClient } from '../../lib/generate/client.ts';
+import { HttpLanguageTool, LanguageToolChecker } from '../../lib/generate/languagetool.ts';
 import { generateText } from '../../lib/generate/loop.ts';
 import { MacSpellChecker } from '../../lib/generate/spell-node.ts';
 import {
   judgeMatches,
   LanguageTool,
-  LanguageToolGrammarChecker,
   parseArgs,
   type ResultRow,
   summarize,
@@ -33,6 +34,7 @@ try {
 const lt = new LanguageTool(args.lt);
 try {
   await lt.ping();
+  if (args.grammar === 'languagetool') await new LanguageTool(args.ltLoop).ping();
 } catch (err) {
   console.error((err as Error).message);
   process.exit(2);
@@ -47,7 +49,7 @@ if (existsSync(log)) {
 }
 const client = new OllamaClient(args.ollama, args.model);
 const spell = new MacSpellChecker();
-const grammar = args.grammar === 'languagetool' ? new LanguageToolGrammarChecker(lt) : undefined;
+const grammar = args.grammar === 'languagetool' ? new LanguageToolChecker(new HttpLanguageTool(args.ltLoop)) : undefined;
 const topics = TOPICS[args.set];
 const total = args.repeats * topics.length * args.targets.length;
 const rows: ResultRow[] = [];
@@ -75,6 +77,8 @@ for (let repeat = 0; repeat < args.repeats; repeat++) {
           sentenceCountOk: res.sentenceCountOk,
           rejected: res.rejected,
           grammarRejected: res.grammarRejected,
+          repairs: res.repairs,
+          loopGrammarIssues: res.grammarIssues.map((i) => `${i.ruleId ?? ''}: ${i.snippet}`),
           lixPath: res.lixPath,
           unknownWords: res.unknownWords,
           title: res.title,

@@ -190,3 +190,34 @@ v2 fix (lib/generate, tuned on the dev set only):
 
 Held-out per target, v1 → v2: 25: 10/20 → 19/20; 35: 19/20 → 17/20; 45: 20/20 → 20/20. Median calls 35 → 19, secs 30 → 14.
 Verdict v2: gate PASS (93% hit, 5/60 = 8% LT-flagged). 3 of 4 misses are at target 35 with 12 sentences (band limit blocks more splits). Slice 3 can start.
+
+### LanguageTool in the app (slice 5, 2026-10-11)
+
+Bundle: LanguageTool 6.6 zip (252 MB, sha256 measured by us: languagetool.org publishes none) + Temurin JRE 21.0.12.1+1 aarch64 (48 MB, Adoptium sha256), pinned in `src-tauri/resources/grammar-manifest.json`. Downloaded on consent into `<app data>/grammar/`, sha256 checked while streaming, unpacked, archives deleted. Unpacked size about 560 MB (LanguageTool 405 MB with all languages, JRE 158 MB); the setup text says "about 300 MB" (the download).
+Language: de-CH. Checked on LT 6.6: accepts "grossen" and "Spass", flags "Er gab dem Hase eine Karotte." as DE_AGREEMENT (GRAMMAR), same "habe ... gegangen" catch as de-DE. So no de-DE fallback is needed.
+Server: `java -Xmx512m -cp languagetool-server.jar org.languagetool.server.HTTPServer --port <8181+>`, binds 127.0.0.1 only, started on the first check, stopped after the idle time (keep-alive setting, at least 30 s) and on app exit. The webview reaches it through the Rust command `grammar_check`, so no CORS origin is needed.
+
+RAM (`cargo run --example grammar_cli`, `ps -o rss` sampled every 100 ms during 22 checks):
+
+| Measure | Value |
+|---|---|
+| JVM RSS, peak during checks | 765 MB (second run 761 MB) |
+| Start to ready | 1.7 s; first check 4.0-4.2 s (loads German) |
+| Check of a 4-sentence text | about 550 ms |
+| After idle (30 s floor, `--idle-test`) | process gone after 31 s, `pgrep` empty |
+| After stop (what the app does on exit) | `pgrep -fl <bundled java>` empty |
+
+Peak RAM with both: about 4.3 GB (model) + 0.77 GB (LanguageTool) ≈ 5.1 GB.
+
+Held-out run with LanguageTool in the loop (`runs/heldout-ts-gemma4-e2b-lt/`):
+`node experiments/eval/run.ts --set heldout --repeats 2 --targets 25,35,45 --sentences 10 --ollama http://127.0.0.1:11435 --model gemma4:e2b-it-qat --grammar languagetool --lt http://127.0.0.1:8081 --lt-loop http://127.0.0.1:8181 --out experiments/runs/heldout-ts-gemma4-e2b-lt`.
+Loop checker: bundled LT 6.6 de-CH (`grammar_cli --serve`). Judge: brew LT 6.8 de-DE on 8081, same judge as the baseline.
+
+| Run | Runs | Hit rate | Mean abs error | LT-flagged texts | Calls (median) | Secs (median) | Errors | Gate |
+|---|---|---|---|---|---|---|---|---|
+| held-out v2, model check (baseline) | 60 | 56/60 (93%) | 0.30 | 5/60 | 19 | 14 | 0 | PASS |
+| held-out, LanguageTool in loop | 60 | 58/60 (97%) | 0.22 | 3/60 | 16.5 | 13 | 0 | PASS |
+
+Per target: 25: 20/20, 35: 18/20, 45: 20/20. Both misses: target 35, LIX 36, 12 sentences (band limit, as in v2). Repair calls in 7 of 60 texts (9 calls). The loop left findings in 4 texts; the judge flagged 3 of them (NACHDEM_PRAETERITUM "fühlte", DE_AGREEMENT "Ein freundlicher Giraffe", DAS_BESTE "schönste"): the 2B model did not fix them in 2 rounds. These remain in the result as `grammarIssues` for underlines.
+
+App live run (debug build, `LIX_APP_DATA` on T7, `LIX_AUTOTEST`): setup grammar step → Add → installed (from the T7 cache) → generator → one generation with LanguageTool (LIX 31.9, miss; second run 30.4 hit). With keep-alive 30s: LanguageTool gone 32 s after the last check, `/api/ps` empty. Quit while LanguageTool ran: no Ollama, llama-server or java process left. Second setup run without the cache: real download from GitHub and languagetool.org, sha256 checked, installed in about 70 s. Remove in the generator's grammar card deleted `<app data>/grammar`. JVM RSS in the app: 763 MB peak.

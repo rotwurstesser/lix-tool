@@ -1,0 +1,20 @@
+{
+  "languagetool": {
+    "version": "6.6",
+    "url": "https://languagetool.org/download/LanguageTool-6.6.zip",
+    "file": "LanguageTool-6.6.zip",
+    "bytes": 251998221,
+    "sha256": "53600506b399bb5ffe1e4c8dec794fd378212f14aaf38ccef9b6f89314d11631",
+    "sha256Source": "measured by us 2026-10-11 (languagetool.org publishes no checksum)",
+    "root": "LanguageTool-6.6"
+  },
+  "jre": {
+    "version": "21.0.12.1+1",
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_aarch64_mac_hotspot_21.0.12.1_1.tar.gz",
+    "file": "OpenJDK21U-jre_aarch64_mac_hotspot_21.0.12.1_1.tar.gz",
+    "bytes": 48144965,
+    "sha256": "dec50fc6f9fcd4fe3ae8cabf5a5fa68f6afc48841f7698e468e9aa5d54beed84",
+    "sha256Source": "api.adoptium.net, release 2026-08-19",
+    "root": "jdk-21.0.12.1+1-jre/Contents/Home"
+  }
+}

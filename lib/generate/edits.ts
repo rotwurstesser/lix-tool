@@ -69,9 +69,22 @@ export function editOptions(sents: string[], { target, title, flagged = new Set(
   return opts.slice(0, MAX_OPTIONS);
 }
 
+// German inflection endings. A grammar repair may swap one for another (freundlicher -> freundliche).
+const INFLECTION_ENDINGS = ['', 'e', 'er', 'en', 'em', 'es', 's', 'n'];
+
+// True when both words are one stem with a different inflection ending.
+const sameStem = (a: string, b: string) =>
+  INFLECTION_ENDINGS.some((ea) => a.endsWith(ea) && INFLECTION_ENDINGS.some((eb) => a.slice(0, a.length - ea.length) + eb === b));
+
 // Rejects candidates that cheat: invented words, or long words cut short (verlorenen -> verlor).
 // Also rejects candidates that delete content: a sentence without words, or less than half the words left.
-export function cleanEdit(oldText: string, newSents: string[], isKnown: (word: string) => boolean): boolean {
+// With allowInflection, a word that only changes its inflection ending is not a cut.
+export function cleanEdit(
+  oldText: string,
+  newSents: string[],
+  isKnown: (word: string) => boolean,
+  { allowInflection = false }: { allowInflection?: boolean } = {},
+): boolean {
   const old = words(oldText);
   const fresh = words(newSents.join(' '));
   if (newSents.some((s) => !words(s).length)) return false;
@@ -81,7 +94,8 @@ export function cleanEdit(oldText: string, newSents: string[], isKnown: (word: s
     if (old.includes(w)) continue;
     if (!isKnown(w)) return false;
     const lw = w.toLowerCase();
-    if (removed.some((r) => r !== lw && r.startsWith(lw) && [...w].length >= 3)) return false;
+    const cut = (r: string) => r !== lw && r.startsWith(lw) && [...w].length >= 3 && !(allowInflection && sameStem(r, lw));
+    if (removed.some(cut)) return false;
   }
   return true;
 }

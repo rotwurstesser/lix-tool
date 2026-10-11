@@ -14,6 +14,7 @@ import {
 } from '@/lib/model-manager';
 import { nextStep, type SetupEvent, type SetupStep } from '@/lib/setup';
 import { debugLog } from '@/lib/tauri';
+import { GRAMMAR_QUESTION, GrammarProgress, useGrammar } from './GrammarSetting';
 
 interface SetupProps {
   baseUrl: string;
@@ -40,6 +41,9 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
   const [step, setStep] = useState<SetupStep>(initial);
   const [download, setDownload] = useState<Download>({ phase: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
+  const grammar = useGrammar();
+  // Set by "Add": the step moves on once the install finishes.
+  const [grammarRequested, setGrammarRequested] = useState(false);
 
   const go = async (event: SetupEvent) => {
     const next = nextStep(step, event);
@@ -97,8 +101,24 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
     }
   };
 
+  const addGrammar = () => {
+    setGrammarRequested(true);
+    grammar.add();
+  };
+
+  useEffect(() => {
+    if (step === 'grammar' && grammarRequested && grammar.status?.install === 'installed') {
+      if (auto) debugLog('setup grammar installed');
+      go('grammarDone');
+    }
+    if (auto && grammar.status?.install === 'failed') debugLog(`setup grammar failed ${grammar.status.message}`);
+    // Reacts to install changes only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, grammarRequested, grammar.status?.install]);
+
   // Debug autotest: run the steps without clicks.
   const autoRan = useRef(false);
+  const autoGrammar = useRef(false);
   useEffect(() => {
     if (!auto) return;
     if (step === 'welcome') {
@@ -106,13 +126,18 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
     } else if (step === 'model' && !autoRan.current) {
       autoRan.current = true;
       startDownload();
+    } else if (step === 'grammar' && grammar.status && !autoGrammar.current) {
+      // Autotest takes the recommended answer.
+      autoGrammar.current = true;
+      debugLog('setup grammar add');
+      addGrammar();
     } else if (step === 'ready') {
       const timer = setTimeout(() => go('finish'), 1500);
       return () => clearTimeout(timer);
     }
     // Reacts to step changes only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auto, step]);
+  }, [auto, step, grammar.status === null]);
 
   // Stop a running download when the screen goes away.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -198,10 +223,45 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
           </section>
         )}
 
+        {step === 'grammar' && grammar.status && (
+          <section className={card} aria-live="polite">
+            <h2 className="text-xl font-semibold text-gray-900">Grammar checker</h2>
+            {grammar.status.install === 'installing' ? (
+              <GrammarProgress status={grammar.status} onCancel={grammar.cancel} />
+            ) : grammar.status.install === 'installed' && !grammarRequested ? (
+              <>
+                <p className="text-gray-700">LanguageTool is already installed.</p>
+                <button className={primary} autoFocus onClick={() => go('grammarDone')}>
+                  Continue
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-700">{GRAMMAR_QUESTION}</p>
+                {grammar.status.install === 'failed' && <p className="text-red-700">{grammar.status.message}</p>}
+                {grammar.status.install === 'missing' && grammar.status.message && (
+                  <p className="text-gray-500">{grammar.status.message}</p>
+                )}
+                <div className="flex gap-3">
+                  <button className={primary} autoFocus onClick={addGrammar}>
+                    {grammar.status.install === 'failed' ? 'Try again' : 'Add'}
+                  </button>
+                  <button className={secondary} onClick={() => go('grammarDone')}>
+                    Skip
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
         {step === 'ready' && (
           <section className={card}>
             <h2 className="text-xl font-semibold text-gray-900">Ready</h2>
-            <p className="text-gray-700">The writing model is installed. The app now works without internet.</p>
+            <p className="text-gray-700">
+              The writing model is installed{grammar.status?.install === 'installed' ? ', and LanguageTool checks the grammar' : ''}.
+              The app now works without internet.
+            </p>
             <button className={primary} autoFocus onClick={() => go('finish')}>
               Start writing
             </button>
