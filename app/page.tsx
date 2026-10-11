@@ -367,6 +367,7 @@ function Generator({ url, keepAlive, prefs, onPrefsChange, saveError, debug, onB
             sentences={lastParams.sentences}
             tolerance={lastParams.tolerance}
             onRetry={() => handleGenerate(lastParams)}
+            debugSheet={debug?.sheet}
           />
         )}
       </div>

@@ -130,3 +130,118 @@ body {
 dialog::backdrop {
   background: rgb(0 0 0 / 0.45);
 }
+
+/* Reading sheet (components/ReadingSheet.tsx), sizes from the teacher's template.
+   Always black on white, also in dark mode. Margins: lib/reading-sheet.ts PAGE_MM. */
+@page {
+  size: A4;
+  margin: 19.8mm 25mm 6.6mm 25mm;
+}
+
+.sheet {
+  font-family: "Deutschschweizer Basisschrift", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 20pt;
+  /* Line heights in pt, not as a factor: the screen rounds 20pt to whole pixels, print does not. */
+  line-height: calc(20pt * var(--sheet-lh, 1.5));
+  color: #000;
+  background: #fff;
+  color-scheme: light;
+}
+
+.sheet h1,
+.sheet p {
+  margin: 0;
+}
+
+.sheet-title {
+  font-size: 28pt;
+  line-height: calc(28pt * var(--sheet-lh, 1.5));
+  font-weight: 700;
+}
+
+.sheet-gap {
+  height: calc(20pt * var(--sheet-lh, 1.5));
+}
+
+.sheet-label {
+  font-size: 16pt;
+  line-height: calc(16pt * var(--sheet-lh, 1.5));
+  font-style: italic;
+}
+
+.sheet-label-gap {
+  height: calc(16pt * var(--sheet-lh, 1.5));
+}
+
+.sheet-keep {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.sheet-boxes {
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.sheet-boxes td {
+  width: 19.8mm;
+  height: 13.8mm;
+  padding: 0;
+  border: 0.5pt solid #000;
+}
+
+.sheet-footer {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1.25cm;
+  break-inside: avoid;
+}
+
+.sheet-footer span {
+  white-space: nowrap;
+}
+
+.sheet-back {
+  break-before: page;
+  page-break-before: always;
+}
+
+/* Hidden copy for the fit check. 4 mm narrower than the print width: print text runs a little wider
+   than screen text (whole-pixel font sizes), so the check must not wrap fewer lines than the paper. */
+.sheet-measure {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 156mm;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.print-sheet {
+  display: none;
+}
+
+@media print {
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    min-height: 0 !important;
+  }
+
+  body > *:not(.print-sheet) {
+    display: none !important;
+  }
+
+  /* WKWebView prints CSS at 96/72 ÷ 1.25 (WebKit's minimum shrink factor) = 16/15 of the real size.
+     Zoom 15/16 gives true pt and mm on paper, so the screen fit check matches the print. */
+  .print-sheet {
+    display: block;
+    zoom: 0.9375;
+  }
+}

@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GrammarIssue } from '@/lib/generate/grammar';
 import type { GenerateResult } from '@/lib/generate/loop';
-import { formatTargetTime } from '@/lib/lix';
+import { formatTargetTime, lix, swissSpelling, round1 } from '@/lib/lix';
+import { footerText, sheetFileName, sheetStats, type SheetLayout } from '@/lib/reading-sheet';
+import { debugLog } from '@/lib/tauri';
+import ReadingSheet, { useSheetFit } from './ReadingSheet';
 import { card, focusRing, primary } from './ui';
 
 interface ResultDisplayProps {
@@ -12,6 +15,8 @@ interface ResultDisplayProps {
   sentences: number;
   tolerance: number;
   onRetry: () => void;
+  // Debug builds (LIX_SCREEN=sheet...): preset layout, and print once on start.
+  debugSheet?: { layout: SheetLayout; print: boolean };
 }
 
 /** Copies through the Clipboard API, with the old selection-based copy as fallback. */
@@ -73,11 +78,57 @@ function flagged(issue: GrammarIssue, sentence: string | undefined): string {
   return issue.snippet;
 }
 
-export default function ResultDisplay({ result, targetLix, sentences, tolerance, onRetry }: ResultDisplayProps) {
+export default function ResultDisplay({ result, targetLix, sentences, tolerance, onRetry, debugSheet }: ResultDisplayProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const regionRef = useRef<HTMLElement>(null);
-  const diff = Math.abs(result.lix - targetLix);
-  const text = [result.title, ...result.sentences].filter(Boolean).join('\n');
+  // The teacher can change the title before printing. LIX and word count follow it.
+  const [shown, setShown] = useState(result);
+  const [title, setTitle] = useState(result.title);
+  if (shown !== result) {
+    setShown(result);
+    setTitle(result.title);
+  }
+  const [layout, setLayout] = useState<SheetLayout>(debugSheet?.layout ?? 'bottom');
+  const [printError, setPrintError] = useState<string | null>(null);
+  const stats = useMemo(() => sheetStats(title, result.sentences), [title, result.sentences]);
+  const { fit, measureNode } = useSheetFit(layout, title, result.sentences, stats);
+  // Unrounded for the hit check, so it agrees with the generator's tolerance.
+  const exactLix = result.sentences.length ? lix(result.sentences, { title: swissSpelling(title.trim()) }) : 0;
+  const actualLix = round1(exactLix);
+  const diff = Math.abs(exactLix - targetLix);
+  const hit = diff <= tolerance;
+  const text = [title.trim(), ...result.sentences].filter(Boolean).join('\n');
+
+  // The macOS print dialog takes the PDF name from the page title.
+  const print = async () => {
+    setPrintError(null);
+    document.title = sheetFileName(stats.lix, title);
+    try {
+      await window.print();
+      const sheet = document.querySelector<HTMLElement>('.print-sheet');
+      debugLog(`print opened title=${document.title} layout=${sheet?.dataset.layout} lineHeight=${sheet?.style.getPropertyValue('--sheet-lh')}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      debugLog(`print failed ${msg}`);
+      setPrintError(`Printing does not start: ${msg}`);
+    }
+  };
+
+  useEffect(() => () => void (document.title = 'LIX Writer'), []);
+
+  // Debug builds: show the sheet card for screenshots, and open the print dialog once, so a script can save the PDF.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!debugSheet) return;
+    const show = setTimeout(() => sheetRef.current?.scrollIntoView({ block: 'start' }), 1500);
+    const id = debugSheet.print ? setTimeout(() => void print(), 3000) : undefined;
+    return () => {
+      clearTimeout(show);
+      clearTimeout(id);
+    };
+    // Runs once on start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const copy = async () => {
     setCopyState((await copyText(text)) ? 'copied' : 'failed');
@@ -113,9 +164,9 @@ export default function ResultDisplay({ result, targetLix, sentences, tolerance,
       aria-label="Generated text"
       className="space-y-6 scroll-mt-4 focus:outline-none"
     >
-      {!result.hit && (
+      {!hit && (
         <div className="bg-warn-soft border border-warn-line p-4 rounded-lg text-warn text-sm">
-          Target missed: LIX {result.lix} is {diff.toFixed(1)} away from {targetLix} (tolerance ±{tolerance}). This is
+          Target missed: LIX {actualLix} is {diff.toFixed(1)} away from {targetLix} (tolerance ±{tolerance}). This is
           the closest text the model found.
         </div>
       )}
@@ -144,7 +195,7 @@ export default function ResultDisplay({ result, targetLix, sentences, tolerance,
           </button>
         </div>
         <div className="p-5 sm:p-6 bg-surface-2 rounded-lg border border-line text-fg leading-relaxed space-y-1 select-text">
-          {result.title && <h3 className="text-2xl font-bold text-fg mb-3">{result.title}</h3>}
+          {title.trim() && <h3 className="text-2xl font-bold text-fg mb-3">{title.trim()}</h3>}
           {result.sentences.map((s, i) => (
             <Sentence key={i} text={s} issues={issuesBySentence(i)} />
           ))}
@@ -173,6 +224,74 @@ export default function ResultDisplay({ result, targetLix, sentences, tolerance,
         )}
       </div>
 
+      <div ref={sheetRef} className={`${card} p-6 sm:p-8 space-y-5 scroll-mt-4`}>
+        <h2 className="text-xl font-bold text-fg">Reading sheet</h2>
+        <div className="space-y-1.5">
+          <label htmlFor="sheet-title" className="block text-sm font-medium text-fg-muted">
+            Title on the sheet
+          </label>
+          <input
+            id="sheet-title"
+            type="text"
+            value={title}
+            maxLength={80}
+            onChange={(e) => setTitle(e.target.value)}
+            className={`w-full px-3 py-2 rounded-lg border border-line-strong bg-surface text-fg ${focusRing}`}
+          />
+          <p className="text-sm text-fg-subtle">The title counts for LIX and words, like on the teacher&apos;s sheet.</p>
+        </div>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-fg-muted mb-1">Fill-in boxes and footer</legend>
+          {(
+            [
+              ['bottom', 'Boxes at the bottom'],
+              ['back', 'Boxes on the back (two-sided)'],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={value} className="flex items-center gap-2 text-fg cursor-pointer w-fit">
+              <input
+                type="radio"
+                name="sheet-layout"
+                value={value}
+                checked={layout === value}
+                onChange={() => setLayout(value)}
+                className="accent-accent w-4 h-4"
+              />
+              {label}
+            </label>
+          ))}
+          {fit.overflow ? (
+            <p className="text-sm text-warn" role="status">
+              The text is longer than one page, so the sheet has more than 2 pages. Ask for fewer sentences to fit it.
+            </p>
+          ) : (
+            fit.moved && (
+              <p className="text-sm text-warn" role="status">
+                The text does not fit one page, so the boxes go on the back. Print two-sided.
+              </p>
+            )
+          )}
+          {fit.layout === 'bottom' && fit.lineHeight < 1.5 && (
+            <p className="text-sm text-fg-subtle" role="status">
+              Line spacing {fit.lineHeight} instead of 1.5, so the sheet fits one page.
+            </p>
+          )}
+        </fieldset>
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+          <p className="text-sm text-fg-muted whitespace-pre-wrap min-w-0">{footerText(stats)}</p>
+          <button onClick={print} className={primary}>
+            Print sheet…
+          </button>
+        </div>
+        {printError && (
+          <p className="text-sm text-danger" role="alert">
+            {printError}
+          </p>
+        )}
+        {measureNode}
+        <ReadingSheet title={title} sentences={result.sentences} stats={stats} fit={fit} />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className={`${card} p-6`}>
           <h3 className="text-lg font-semibold text-fg mb-4">LIX analysis</h3>
@@ -180,11 +299,11 @@ export default function ResultDisplay({ result, targetLix, sentences, tolerance,
             <Row label="Target LIX" value={targetLix} />
             <Row
               label="Actual LIX (title counted)"
-              value={<span className={result.hit ? 'text-success' : 'text-danger'}>{result.lix}</span>}
+              value={<span className={hit ? 'text-success' : 'text-danger'}>{actualLix}</span>}
             />
             <Row label="LIX path" value={<span className="font-mono text-sm break-all">{result.lixPath.join(' → ')}</span>} />
           </div>
-          {!result.hit && (
+          {!hit && (
             <button onClick={onRetry} className={`${primary} mt-6 w-full py-3`}>
               Try again
             </button>
@@ -194,8 +313,8 @@ export default function ResultDisplay({ result, targetLix, sentences, tolerance,
         <div className={`${card} p-6`}>
           <h3 className="text-lg font-semibold text-fg mb-4">Statistics</h3>
           <div className="space-y-3">
-            <Row label="Words (title counted)" value={result.words} />
-            <Row label="Zielzeit (maximal)" value={formatTargetTime(result.targetTimeSeconds)} />
+            <Row label="Words (title counted)" value={stats.words} />
+            <Row label="Zielzeit (maximal)" value={formatTargetTime(stats.targetSeconds)} />
             <Row label="Model calls / time" value={`${result.calls} / ${result.secs} s`} />
             {result.unknownWords.length > 0 && <Row label="Unknown words" value={result.unknownWords.join(', ')} />}
           </div>
