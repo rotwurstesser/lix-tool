@@ -1,115 +1,75 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import GeneratorForm from '@/components/GeneratorForm';
 import ResultDisplay from '@/components/ResultDisplay';
-import { Attempt, GenerationParams } from '@/types';
+import { OllamaClient } from '@/lib/generate/client';
+import { generateText, type GenerateResult, type LoopEvent } from '@/lib/generate/loop';
+import { NoopSpellChecker } from '@/lib/generate/spell';
+import { GenerationParams } from '@/types';
+
+// Server URL and model become settings in slice 4.
+const OLLAMA_URL = process.env.NEXT_PUBLIC_OLLAMA_URL || 'http://127.0.0.1:11434';
+const MODEL = 'gemma4:e2b-it-qat';
+
+const STEP_LABELS: Record<LoopEvent['type'], string> = {
+  draft: 'Draft',
+  title: 'Title',
+  edit: 'Edit',
+  grammar: 'Grammar pass',
+  done: 'Done',
+};
+
+function progressText(e: LoopEvent): string {
+  const parts = [STEP_LABELS[e.type] + (e.n ? ` ${e.n}` : '')];
+  if (e.lix !== undefined) parts.push(`LIX ${e.lix}`);
+  parts.push(`${Math.round(e.elapsedMs / 1000)} s`);
+  return parts.join(' · ');
+}
 
 export default function Home() {
-  const [generatedText, setGeneratedText] = useState('');
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [warning, setWarning] = useState<string | undefined>(undefined);
+  const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('Waiting for AI...');
+  const [progress, setProgress] = useState('');
+  const [lixPath, setLixPath] = useState<number[]>([]);
   const [lastParams, setLastParams] = useState<GenerationParams | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const handleGenerate = async (params: GenerationParams) => {
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     setIsLoading(true);
-    setGeneratedText('');
-    setAttempts([]);
-    setWarning(undefined);
+    setResult(null);
     setError(undefined);
-    setLoadingMessage('Initializing model...');
+    setLixPath([]);
+    setProgress('Starting model...');
     setLastParams(params);
 
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const res = await generateText(
+        { topic: params.topic, targetLix: params.lix, sentences: params.sentences, tolerance: params.tolerance },
+        { client: new OllamaClient(OLLAMA_URL, MODEL), spell: new NoopSpellChecker() },
+        (e) => {
+          setProgress(progressText(e));
+          if ((e.type === 'title' || e.type === 'edit' || e.type === 'grammar') && e.lix !== undefined) {
+            setLixPath((prev) => [...prev, e.lix as number]);
+          }
         },
-        body: JSON.stringify(params),
-      });
-
-      if (!response.ok) {
-        let errorMsg = 'Failed to generate text';
-        try {
-          const rawText = await response.text();
-          try {
-            const data = JSON.parse(rawText);
-            errorMsg = data.error || errorMsg;
-          } catch {
-            // If it's not JSON, it's likely an HTML error page from the server
-            console.error('Non-JSON error response:', rawText.substring(0, 200));
-            errorMsg = `Server Error (${response.status}): ${rawText.includes('<!DOCTYPE') || rawText.includes('<html') ? 'Check server logs (HTML response)' : rawText.substring(0, 100)}`;
-          }
-        } catch (e) {
-          console.error('Error reading error response:', e);
-        }
-        throw new Error(errorMsg);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Response body is not readable');
-
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          try {
-            const data = JSON.parse(line);
-
-            if (data.type === 'attempt') {
-              setAttempts(prev => [...prev, data.data]);
-              const attemptNum = data.data.attempt;
-              if (data.data.isSuccess) {
-                setLoadingMessage(`Attempt ${attemptNum} succeeded!`);
-              } else {
-                const failReason = data.data.errors.length > 0 ? data.data.errors[0] : 'validation failed';
-                setLoadingMessage(`Attempt ${attemptNum} failed: ${failReason}, retrying...`);
-              }
-            } else if (data.type === 'success') {
-              setGeneratedText(data.text);
-              if (data.attempts) setAttempts(data.attempts);
-            } else if (data.type === 'warning') {
-              setGeneratedText(data.text);
-              if (data.attempts) setAttempts(data.attempts);
-              setWarning(data.warning);
-            } else if (data.type === 'error') {
-              setError(data.error);
-              if (data.attempts) setAttempts(data.attempts);
-              // Break out of the stream reading loop on error
-              reader.cancel();
-              return;
-            }
-          } catch (e) {
-            // Only log JSON parsing errors, don't swallow intentional errors
-            if (e instanceof SyntaxError) {
-              console.error('Error parsing stream chunk:', e);
-            } else {
-              // Re-throw non-parsing errors
-              throw e;
-            }
-          }
-        }
-      }
+        ctrl.signal,
+      );
+      if (!res.sentences.length) setError('The model returned no usable story. Please try again.');
+      else setResult(res);
     } catch (err: unknown) {
-      const errorObj = err as Error;
-      console.error('Error:', errorObj);
-      const errorMsg = errorObj.message || 'Failed to generate text. Please try again.';
-      setError(errorMsg);
+      if (ctrl.signal.aborted) {
+        setError('Cancelled.');
+      } else {
+        console.error('Error:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(`${msg} (Ollama at ${OLLAMA_URL}, model ${MODEL})`);
+      }
     } finally {
+      abortRef.current = null;
       setIsLoading(false);
     }
   };
@@ -123,7 +83,7 @@ export default function Home() {
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Generate texts with specific readability scores for educational or testing purposes.
-            Powered by OpenRouter AI.
+            Runs on a local model (Ollama).
           </p>
           <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 text-left max-w-3xl mx-auto">
             <h3 className="font-semibold text-blue-900 mb-2">What is LIX?</h3>
@@ -140,7 +100,22 @@ export default function Home() {
           </div>
         </div>
 
-        <GeneratorForm onSubmit={handleGenerate} isLoading={isLoading} loadingMessage={loadingMessage} />
+        <GeneratorForm onSubmit={handleGenerate} isLoading={isLoading} />
+
+        {isLoading && (
+          <div className="bg-white rounded-xl shadow border border-gray-100 p-6 flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="font-medium text-gray-800">{progress}</p>
+              {lixPath.length > 0 && <p className="text-sm font-mono text-gray-500">LIX path: {lixPath.join(' → ')}</p>}
+            </div>
+            <button
+              onClick={() => abortRef.current?.abort()}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-6 shadow-md">
@@ -164,61 +139,13 @@ export default function Home() {
           </div>
         )}
 
-        {attempts && attempts.length > 0 && (
-          <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-700">Generation Attempts</span>
-                <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-                  {attempts.length} {attempts.length === 1 ? 'attempt' : 'attempts'}
-                </span>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {attempts.map((attempt: Attempt, idx: number) => (
-                <div key={idx} className={`p-6 ${attempt.isSuccess ? 'bg-green-50/30' : 'bg-red-50/30'}`}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-900">Attempt {attempt.attempt}</span>
-                      {attempt.isSuccess ? (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">Success</span>
-                      ) : (
-                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">Failed</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {!attempt.isSuccess && attempt.errors && (
-                    <div className="mb-3 space-y-1">
-                      {attempt.errors.map((err: string, i: number) => (
-                        <div key={i} className="text-xs text-red-600 flex items-center gap-1">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="15" y1="9" x2="9" y2="15"></line>
-                            <line x1="9" y1="9" x2="15" y2="15"></line>
-                          </svg>
-                          {err} | LIX: {attempt.stats.score}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-200 font-mono text-xs whitespace-pre-wrap">
-                    {attempt.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {generatedText && lastParams && (
+        {result && lastParams && (
           <ResultDisplay
-            text={generatedText}
+            result={result}
             targetLix={lastParams.lix}
+            sentences={lastParams.sentences}
+            tolerance={lastParams.tolerance}
             onRetry={() => handleGenerate(lastParams)}
-            attempts={attempts}
-            warning={warning}
           />
         )}
 
