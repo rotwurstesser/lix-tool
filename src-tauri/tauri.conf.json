@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "npm run fetch-ollama && npm run dev",
+    "beforeBuildCommand": "npm run fetch-ollama && npm run build"
   },
   "app": {
     "windows": [
@@ -30,6 +30,9 @@
     "macOS": {
       "signingIdentity": "-",
       "minimumSystemVersion": "13.0"
+    },
+    "resources": {
+      "resources/ollama/": "ollama/"
     }
   }
 }

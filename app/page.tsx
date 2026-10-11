@@ -3,15 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import GeneratorForm from '@/components/GeneratorForm';
 import ResultDisplay from '@/components/ResultDisplay';
+import Setup from '@/components/Setup';
+import { backendStatus, DEFAULT_KEEP_ALIVE, getSettings, restartBackend, waitForBackend, type Settings } from '@/lib/backend';
 import { OllamaClient } from '@/lib/generate/client';
 import { generateText, type GenerateResult, type LoopEvent } from '@/lib/generate/loop';
 import { browserSpellChecker } from '@/lib/generate/spell-tauri';
+import { MODEL, ModelManager } from '@/lib/model-manager';
+import { restartPhase, startupPhase, type Phase, type StartupDeps } from '@/lib/startup';
 import { debugAutotestTopic, debugLog } from '@/lib/tauri';
 import { GenerationParams } from '@/types';
-
-// Server URL and model become settings in slice 4.
-const OLLAMA_URL = process.env.NEXT_PUBLIC_OLLAMA_URL || 'http://127.0.0.1:11434';
-const MODEL = 'gemma4:e2b-it-qat';
 
 const STEP_LABELS: Record<LoopEvent['type'], string> = {
   draft: 'Draft',
@@ -28,7 +28,90 @@ function progressText(e: LoopEvent): string {
   return parts.join(' · ');
 }
 
+// Waits for the bundled Ollama, then shows the setup until the model is installed.
 export default function Home() {
+  const [phase, setPhase] = useState<Phase>({ kind: 'starting' });
+  const [auto, setAuto] = useState(false);
+
+  const deps: StartupDeps = {
+    waitForBackend: () => waitForBackend(),
+    getSettings,
+    isInstalled: (url) => new ModelManager(url).isInstalled(),
+    restartBackend,
+  };
+
+  const show = (next: Phase) => {
+    debugLog(next.kind === 'failed' ? `backend failed: ${next.message}` : `phase ${next.kind}`);
+    setPhase(next);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const topic = await debugAutotestTopic();
+      if (!cancelled) setAuto(!!topic);
+      const next = await startupPhase(deps);
+      if (!cancelled) show(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Runs once on start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const retry = async () => {
+    setPhase({ kind: 'starting' });
+    show(await restartPhase(deps));
+  };
+
+  // Setup finished: go straight to the generator, do not read the saved step back.
+  const setupDone = async (url: string) => {
+    const settings = await getSettings().catch(() => ({}) as Settings);
+    show({ kind: 'generator', url, keepAlive: settings.keepAlive ?? DEFAULT_KEEP_ALIVE });
+  };
+
+  if (phase.kind === 'setup') {
+    return (
+      <Setup
+        baseUrl={phase.url}
+        initial={phase.step}
+        auto={auto}
+        onDone={() => setupDone(phase.url)}
+        onBackendFailed={(message) => setPhase({ kind: 'failed', message })}
+      />
+    );
+  }
+  if (phase.kind === 'generator') {
+    return (
+      <Generator url={phase.url} keepAlive={phase.keepAlive} onBackendLost={(message) => show({ kind: 'failed', message })} />
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-gray-50 py-16 px-4">
+      <div className="max-w-xl mx-auto bg-white rounded-xl shadow-lg border border-gray-100 p-8 space-y-4" aria-live="polite">
+        {phase.kind === 'starting' ? (
+          <p className="text-gray-700">Starting the writing engine…</p>
+        ) : (
+          <>
+            <h2 className="text-xl font-semibold text-red-900">The writing engine does not start</h2>
+            <p className="text-red-700 break-words">{phase.message}</p>
+            <button
+              autoFocus
+              onClick={retry}
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              Try again
+            </button>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function Generator({ url, keepAlive, onBackendLost }: { url: string; keepAlive: string; onBackendLost: (message: string) => void }) {
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +133,7 @@ export default function Home() {
     try {
       const res = await generateText(
         { topic: params.topic, targetLix: params.lix, sentences: params.sentences, tolerance: params.tolerance },
-        { client: new OllamaClient(OLLAMA_URL, MODEL), spell: browserSpellChecker() },
+        { client: new OllamaClient(url, MODEL, keepAlive), spell: browserSpellChecker() },
         (e) => {
           setProgress(progressText(e));
           if ((e.type === 'title' || e.type === 'edit' || e.type === 'grammar') && e.lix !== undefined) {
@@ -68,7 +151,10 @@ export default function Home() {
       } else {
         console.error('Error:', err);
         const msg = err instanceof Error ? err.message : String(err);
-        setError(`${msg} (Ollama at ${OLLAMA_URL}, model ${MODEL})`);
+        setError(`${msg} (Ollama at ${url}, model ${MODEL})`);
+        // A dead engine needs a restart, not a new generation: show the engine screen.
+        const status = await backendStatus().catch(() => null);
+        if (status?.state === 'failed') onBackendLost(status.message);
       }
       return null;
     } finally {
@@ -82,9 +168,9 @@ export default function Home() {
     let cancelled = false;
     debugAutotestTopic().then(async (topic) => {
       if (!topic || cancelled) return;
-      debugLog(`autotest start origin=${window.location.origin} ollama=${OLLAMA_URL}`);
+      debugLog(`autotest start origin=${window.location.origin} ollama=${url}`);
       try {
-        const res = await fetch(`${OLLAMA_URL}/api/version`);
+        const res = await fetch(`${url}/api/version`);
         debugLog(`fetch-probe ok status=${res.status} body=${(await res.text()).trim()}`);
       } catch (err) {
         debugLog(`fetch-probe failed ${err instanceof Error ? err.message : String(err)}`);
@@ -102,6 +188,7 @@ export default function Home() {
       cancelled = true;
     };
     // Runs once on start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
