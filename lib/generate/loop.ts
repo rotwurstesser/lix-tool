@@ -11,7 +11,12 @@ import { CachedSpellChecker, NoopSpellChecker, type SpellChecker } from './spell
 
 export const MAX_DRAFTS = 3;
 export const DEFAULT_TOLERANCE = 0.5;
-export const DEFAULT_MAX_EDITS = 12;
+// Edit budget per fix loop: scales with the gap after the draft, because one edit moves LIX by about 0.7.
+export const MIN_EDITS = 12;
+export const MAX_EDITS = 24;
+export function editBudget(gap: number): number {
+  return Math.min(MAX_EDITS, Math.max(MIN_EDITS, Math.ceil(Math.abs(gap) / 0.7) + 4));
+}
 // Grammar check: how many improving candidates to try before the fix loop stops.
 export const GRAMMAR_TRIES = 3;
 
@@ -27,6 +32,7 @@ export interface GenerateParams {
   targetLix: number;
   sentences: number;
   tolerance?: number;
+  // Default: editBudget() of the gap after the draft and title.
   maxEdits?: number;
 }
 
@@ -71,7 +77,7 @@ export async function generateText(
 ): Promise<GenerateResult> {
   const { topic, targetLix: target, sentences: count } = params;
   const tolerance = params.tolerance ?? DEFAULT_TOLERANCE;
-  const maxEdits = params.maxEdits ?? DEFAULT_MAX_EDITS;
+  let maxEdits = MIN_EDITS; // set after the title
   const now = deps.now ?? Date.now;
   const t0 = now();
   const spell = new CachedSpellChecker(deps.spell ?? new NoopSpellChecker());
@@ -192,6 +198,7 @@ export async function generateText(
 
   title = parseTitle(await ask(titlePrompt(sents.join(' '))));
   const path = [round1(lix(sents, { title }))];
+  maxEdits = params.maxEdits ?? editBudget(gapOf(sents));
   emit('title', { lix: path[0] });
 
   sents = await fixLoop(sents, false, path);

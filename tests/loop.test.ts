@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LlmClient } from '../lib/generate/client.ts';
-import { generateText, type LoopEvent } from '../lib/generate/loop.ts';
+import { editBudget, generateText, type LoopEvent } from '../lib/generate/loop.ts';
 import { isLongWord, words } from '../lib/lix.ts';
 import { STORY, TITLE } from './fixture.ts';
 
@@ -108,5 +108,31 @@ describe('generateText', () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(client.prompts.length).toBe(callsAtAbort);
     expect(client.prompts.some((p) => p.startsWith('Geschichte:'))).toBe(false);
+  });
+
+  it('scales the edit budget with the gap so a far draft still reaches the target', async () => {
+    // Each accepted edit swaps one long word for "Ast", about -0.9 LIX. From 26.3 to 14.5 that needs 13 edits.
+    // The grammar pass returns the draft, so the last fix loop must do all 13 edits alone.
+    const far = { ...params, targetLix: 14.5 };
+    const capped = await generateText({ ...far, maxEdits: 12 }, { client: fakeClient(cooperative) });
+    expect(capped.hit).toBe(false);
+    const res = await generateText(far, { client: fakeClient(cooperative) });
+    expect(res.hit).toBe(true);
+    expect(capped.lix).toBe(15.5);
+    expect(res.lix).toBe(14.6);
+  });
+});
+
+describe('editBudget', () => {
+  it.each([
+    [0, 12],
+    [3, 12],
+    [7, 14],
+    [-7, 14],
+    [10, 19],
+    [14, 24],
+    [30, 24],
+  ])('gap %d -> %i edits', (gap, budget) => {
+    expect(editBudget(gap)).toBe(budget);
   });
 });

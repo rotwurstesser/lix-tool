@@ -1,10 +1,22 @@
-// German prompts, copied 1:1 from experiments/draft_then_fix.py (v3). The title prompt is new.
+// German prompts from experiments/draft_then_fix.py (v3). New: the title prompt and the low-target hints in the draft prompt.
+
+// Below this target the draft prompt asks for mostly short words.
+export const SHORT_WORDS_BELOW = 30;
+
+// Words-per-sentence hint for the draft. LIX = words per sentence + percent of long words.
+// Below LIX 35, target / 2 gives drafts that start too high: the long words add points.
+// target - 17 (tuned on the dev set) meets target / 2 at 35 without a jump; target - 20 gave drafts too low.
+export function wordsPerSentence(targetLix: number): number {
+  return targetLix < 35 ? Math.max(5, Math.round(targetLix - 17)) : pyRound(targetLix / 2);
+}
 
 export function draftPrompt(topic: string, sentences: number, targetLix: number): string {
-  const wps = pyRound(targetLix / 2);
+  const shortWords =
+    targetLix < SHORT_WORDS_BELOW ? 'Verwende kurze, einfache Wörter, meist mit höchstens 6 Buchstaben. ' : '';
   return (
-    `Schreibe eine Kindergeschichte auf Deutsch über ${topic}. Genau ${sentences} Sätze, im Schnitt etwa ${wps} ` +
-    'Wörter pro Satz. Einfache, klare, korrekte Sprache, eine richtige kleine Handlung mit Anfang und Ende. ' +
+    `Schreibe eine Kindergeschichte auf Deutsch über ${topic}. Genau ${sentences} Sätze, im Schnitt etwa ` +
+    `${wordsPerSentence(targetLix)} Wörter pro Satz. ${shortWords}` +
+    'Einfache, klare, korrekte Sprache, eine richtige kleine Handlung mit Anfang und Ende. ' +
     'Kein Titel, keine Formatierung. Gib nur die Geschichte aus.'
   );
 }

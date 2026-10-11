@@ -166,3 +166,27 @@ Conclusion: real grammar rate is about 5-8% of texts, not 50-80% as the LLM judg
 `runs/heldout-gemma4-e4b/`: 55/60 hit (92%), MAE 0.28, median 22.5 calls / 28.5 s, 0 errors. LanguageTool: 4/60 texts with grammar error. Invented words: Rauchstupser, Stolperereien, Zimtes, Keksbäcker-Backofen, schieferbedeckte (mix of real errors and valid rare compounds).
 Verdict: e4b is not better than e2b (lower hit rate, slower, more invented words), so it brings no gain for its +1.8 GB. Light model = gemma4:e2b-it-qat.
 Servers stopped after the run (T7 Ollama, LanguageTool).
+
+### TypeScript eval runner, held-out (2026-10-11)
+
+`node experiments/eval/run.ts --set heldout --repeats 2 --targets 25,35,45 --sentences 10 --ollama http://127.0.0.1:11435 --model gemma4:e2b-it-qat --grammar model --out experiments/runs/heldout-ts-gemma4-e2b`. Judge: LanguageTool de-DE (GRAMMAR, CASING, CONFUSED_WORDS), title + text judged.
+Note: the TS loop writes 10 sentences and counts the title in LIX. The Python runs above used 8 sentences and no title, so results are not 1:1 comparable.
+
+| Model | Runs | Hit rate | Mean abs error | LT-flagged texts | Texts with typo | Calls (median) | Secs (median) | Errors | Gate |
+|---|---|---|---|---|---|---|---|---|---|
+| gemma4:e2b-it-qat | 60 | 49/60 (82%) | 0.78 | 6/60 | 60/60 | 35 | 30 | 0 | FAIL |
+
+Verdict: gate FAIL on hit rate (82% < 90%); grammar passes (6/60 = 10%, at the limit). Misses sit at target 25 (10/20 hit; 35: 19/20, 45: 20/20), mostly LIX 26-28 with 11-12 sentences. Typos 60/60 = Swiss "ss" spelling (grossen, Spass) plus names under de-DE, not real errors. Slice 3 is on hold until this is resolved.
+
+v2 fix (lib/generate, tuned on the dev set only):
+- Draft prompt: words-per-sentence hint = max(5, round(target − 17)) below LIX 35 (target / 2 from 35, no jump at 35); below LIX 30 it also asks for short, simple words (mostly ≤ 6 letters). target − 20 was tried first: on dev, drafts for target 25 started too low (LIX 10-22) and 3/5 hit; target − 17 hit 10/10 at target 25 on dev.
+- Edit budget per fix loop = clamp(ceil(|gap after draft| / 0.7) + 4, 12, 24), was a fixed 12.
+
+| Run | Runs | Hit rate | Mean abs error | LT-flagged texts | Texts with typo | Calls (median) | Secs (median) | Errors | Gate |
+|---|---|---|---|---|---|---|---|---|---|
+| dev, target − 20 (25/35/45 × 1) | 15 | 13/15 (87%) | 0.31 | 3/15 | 13/15 | 22 | 13 | 0 | FAIL |
+| dev, target − 17, target 25 only × 2 | 10 | 10/10 (100%) | 0.26 | 0/10 | 10/10 | 17 | 8 | 0 | PASS |
+| held-out v2 (`runs/heldout-ts-gemma4-e2b-v2/`) | 60 | 56/60 (93%) | 0.30 | 5/60 | 57/60 | 19 | 14 | 0 | PASS |
+
+Held-out per target, v1 → v2: 25: 10/20 → 19/20; 35: 19/20 → 17/20; 45: 20/20 → 20/20. Median calls 35 → 19, secs 30 → 14.
+Verdict v2: gate PASS (93% hit, 5/60 = 8% LT-flagged). 3 of 4 misses are at target 35 with 12 sentences (band limit blocks more splits). Slice 3 can start.
