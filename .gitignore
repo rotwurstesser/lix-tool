@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local runs
+experiments/*.log
+experiments/runs/**/*.log
+__pycache__/
+
+# tauri
+/src-tauri/target/
