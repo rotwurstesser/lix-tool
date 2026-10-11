@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Static files for the Tauri app (src-tauri/tauri.conf.json frontendDist).
+  output: "export",
+  images: { unoptimized: true },
   reactCompiler: true,
 };
 

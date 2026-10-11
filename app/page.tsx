@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import GeneratorForm from '@/components/GeneratorForm';
 import ResultDisplay from '@/components/ResultDisplay';
 import { OllamaClient } from '@/lib/generate/client';
 import { generateText, type GenerateResult, type LoopEvent } from '@/lib/generate/loop';
-import { NoopSpellChecker } from '@/lib/generate/spell';
+import { browserSpellChecker } from '@/lib/generate/spell-tauri';
+import { debugAutotestTopic, debugLog } from '@/lib/tauri';
 import { GenerationParams } from '@/types';
 
 // Server URL and model become settings in slice 4.
@@ -36,7 +37,7 @@ export default function Home() {
   const [lastParams, setLastParams] = useState<GenerationParams | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const handleGenerate = async (params: GenerationParams) => {
+  const handleGenerate = async (params: GenerationParams): Promise<GenerateResult | null> => {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setIsLoading(true);
@@ -49,7 +50,7 @@ export default function Home() {
     try {
       const res = await generateText(
         { topic: params.topic, targetLix: params.lix, sentences: params.sentences, tolerance: params.tolerance },
-        { client: new OllamaClient(OLLAMA_URL, MODEL), spell: new NoopSpellChecker() },
+        { client: new OllamaClient(OLLAMA_URL, MODEL), spell: browserSpellChecker() },
         (e) => {
           setProgress(progressText(e));
           if ((e.type === 'title' || e.type === 'edit' || e.type === 'grammar') && e.lix !== undefined) {
@@ -60,6 +61,7 @@ export default function Home() {
       );
       if (!res.sentences.length) setError('The model returned no usable story. Please try again.');
       else setResult(res);
+      return res;
     } catch (err: unknown) {
       if (ctrl.signal.aborted) {
         setError('Cancelled.');
@@ -68,11 +70,39 @@ export default function Home() {
         const msg = err instanceof Error ? err.message : String(err);
         setError(`${msg} (Ollama at ${OLLAMA_URL}, model ${MODEL})`);
       }
+      return null;
     } finally {
       abortRef.current = null;
       setIsLoading(false);
     }
   };
+
+  // Debug builds of the app: LIX_AUTOTEST=<topic> runs one generation and prints the result to stdout.
+  useEffect(() => {
+    let cancelled = false;
+    debugAutotestTopic().then(async (topic) => {
+      if (!topic || cancelled) return;
+      debugLog(`autotest start origin=${window.location.origin} ollama=${OLLAMA_URL}`);
+      try {
+        const res = await fetch(`${OLLAMA_URL}/api/version`);
+        debugLog(`fetch-probe ok status=${res.status} body=${(await res.text()).trim()}`);
+      } catch (err) {
+        debugLog(`fetch-probe failed ${err instanceof Error ? err.message : String(err)}`);
+      }
+      const t0 = Date.now();
+      const res = await handleGenerate({ topic, lix: 30, sentences: 10, tolerance: 0.5 });
+      const secs = Math.round((Date.now() - t0) / 1000);
+      if (res) {
+        debugLog(`autotest done lix=${res.lix} hit=${res.hit} sentences=${res.sentences.length} unknown=${res.unknownWords.length} secs=${secs} title=${res.title}`);
+      } else {
+        debugLog(`autotest failed secs=${secs}`);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Runs once on start.
+  }, []);
 
   return (
     <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
