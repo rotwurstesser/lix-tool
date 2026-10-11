@@ -128,7 +128,7 @@ export default function Home() {
         ) : (
           <>
             <h2 className="text-xl font-semibold text-danger">The writing engine does not start</h2>
-            <p className="text-fg-muted break-words">{phase.message}</p>
+            <EngineError message={phase.message} />
             <button autoFocus onClick={retry} className={primary}>
               Try again
             </button>
@@ -136,6 +136,24 @@ export default function Home() {
         )}
       </div>
     </main>
+  );
+}
+
+// The Rust side appends " Log: <last log lines>". The teacher sees the plain message; the log stays folded.
+function EngineError({ message }: { message: string }) {
+  const at = message.indexOf(' Log: ');
+  const text = at < 0 ? message : message.slice(0, at);
+  const log = at < 0 ? '' : message.slice(at + 6);
+  return (
+    <>
+      <p className="text-fg-muted break-words">{text} Quit the app and open it again. If it still fails, restart the Mac.</p>
+      {log && (
+        <details className="text-sm text-fg-subtle">
+          <summary className="cursor-pointer">Technical details</summary>
+          <p className="mt-2 break-words font-mono text-xs">{log}</p>
+        </details>
+      )}
+    </>
   );
 }
 

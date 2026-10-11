@@ -12,7 +12,8 @@ use std::time::{Duration, Instant};
 
 pub const FIRST_PORT: u16 = 11535;
 const PORT_TRIES: u16 = 100;
-const READY_TIMEOUT: Duration = Duration::from_secs(15);
+// The first start on a new Mac can be slow: macOS checks the engine files before they run.
+const READY_TIMEOUT: Duration = Duration::from_secs(60);
 // Ollama rejects "tauri://localhost" at start; the wildcard form passes its origin check.
 const ORIGINS: &str = "tauri://*,http://tauri.localhost,http://localhost:3000";
 
@@ -275,7 +276,7 @@ impl Backend {
                 }
             }
             if Instant::now() > deadline {
-                return Err(format!("The writing engine did not answer within 15 s.{}", log_tail(&cfg.log_file(), log_start)));
+                return Err(format!("The writing engine did not answer within 60 s.{}", log_tail(&cfg.log_file(), log_start)));
             }
             thread::sleep(Duration::from_millis(200));
         }

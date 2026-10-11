@@ -120,10 +120,11 @@ node experiments/eval/run.ts --set heldout --repeats 2 --targets 25,35,45 --sent
 
 Latest results (gemma4:e2b-it-qat, M3 Ultra; gate: hit ≥ 90% within ±0.5 LIX and ≤ 10% texts with grammar findings):
 
-| Run | Hit rate | Mean abs error | Grammar findings | Median time | Gate |
+| Run (targets 25/35/45 unless noted) | Hit rate | Mean abs error | Grammar findings | Median time | Gate |
 |---|---|---|---|---|---|
 | held-out, model checks its own grammar | 56/60 | 0.30 | 5/60 | 14 s | PASS |
 | held-out, LanguageTool in the loop | 58/60 | 0.22 | 3/60 | 13 s | PASS |
+| held-out, LanguageTool, LIX 17 to 35 (teacher range) | 68/70 | 0.27 | 2/70 | 10 s | PASS |
 
 Details: `experiments/runs/*/SUMMARY.md` and `REVIVAL-NOTES.md`.
 
