@@ -1,19 +1,132 @@
 @import "tailwindcss";
 
+/* Colour tokens. Light is the default; dark follows the system unless data-theme picks one.
+   The Rust side sets data-theme before the first paint (src-tauri/src/lib.rs). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --fg: #111827;
+  --fg-muted: #374151;
+  --fg-subtle: #6b7280;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --on-accent: #ffffff;
+  --accent-soft: #eff6ff;
+  --accent-soft-line: #dbeafe;
+  --accent-soft-fg: #1e3a8a;
+  --danger: #b91c1c;
+  --danger-strong: #dc2626;
+  --danger-soft: #fef2f2;
+  --danger-line: #fecaca;
+  --warn: #854d0e;
+  --warn-soft: #fefce8;
+  --warn-line: #fde68a;
+  --success: #15803d;
+  --ring: #3b82f6;
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.08), 0 4px 12px rgb(0 0 0 / 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111317;
+    --surface: #1b1e24;
+    --surface-2: #23272f;
+    --line: #2f343d;
+    --line-strong: #414753;
+    --fg: #f3f4f6;
+    --fg-muted: #d1d5db;
+    --fg-subtle: #9ca3af;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --on-accent: #ffffff;
+    --accent-soft: #172036;
+    --accent-soft-line: #1e3a5f;
+    --accent-soft-fg: #bfdbfe;
+    --danger: #fca5a5;
+    --danger-strong: #ef4444;
+    --danger-soft: #2a1515;
+    --danger-line: #5b2121;
+    --warn: #fde68a;
+    --warn-soft: #2a2410;
+    --warn-line: #5c4a12;
+    --success: #4ade80;
+    --ring: #60a5fa;
+    --shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111317;
+  --surface: #1b1e24;
+  --surface-2: #23272f;
+  --line: #2f343d;
+  --line-strong: #414753;
+  --fg: #f3f4f6;
+  --fg-muted: #d1d5db;
+  --fg-subtle: #9ca3af;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --on-accent: #ffffff;
+  --accent-soft: #172036;
+  --accent-soft-line: #1e3a5f;
+  --accent-soft-fg: #bfdbfe;
+  --danger: #fca5a5;
+  --danger-strong: #ef4444;
+  --danger-soft: #2a1515;
+  --danger-line: #5b2121;
+  --warn: #fde68a;
+  --warn-soft: #2a2410;
+  --warn-line: #5c4a12;
+  --success: #4ade80;
+  --ring: #60a5fa;
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-line: var(--accent-soft-line);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-line: var(--warn-line);
+  --color-success: var(--success);
+  --color-ring: var(--ring);
+  --shadow-card: var(--shadow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: var(--font-sans), -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
 }

@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { SetupStep } from './setup';
-import { inTauri } from './tauri';
+import { inTauri, withTimeout } from './tauri';
 
 // Bridge to the Rust backend (src-tauri/src/backend.rs). Outside Tauri (next dev in a
 // browser) it uses NEXT_PUBLIC_OLLAMA_URL and keeps settings in localStorage.
@@ -14,6 +14,8 @@ export interface BackendStatus {
 export interface Settings {
   keepAlive?: string;
   setupStep?: SetupStep;
+  theme?: 'system' | 'light' | 'dark';
+  grammarEnabled?: boolean;
 }
 
 export const DEFAULT_KEEP_ALIVE = '5m';
@@ -22,7 +24,7 @@ const SETTINGS_KEY = 'lix-settings';
 
 export async function backendStatus(): Promise<BackendStatus> {
   if (!inTauri()) return { state: 'ready', message: 'Ready', url: BROWSER_URL };
-  return invoke<BackendStatus>('backend_status');
+  return withTimeout(invoke<BackendStatus>('backend_status'), 5_000, 'Engine status');
 }
 
 export async function restartBackend(): Promise<void> {
@@ -49,7 +51,7 @@ export async function waitForBackend(timeoutMs = START_WAIT_MS): Promise<Backend
 export async function freeDiskBytes(): Promise<number | null> {
   if (!inTauri()) return null;
   try {
-    return await invoke<number>('free_disk_bytes', { path: null });
+    return await withTimeout(invoke<number>('free_disk_bytes', { path: null }), 10_000, 'Disk check');
   } catch {
     return null;
   }
@@ -59,7 +61,7 @@ export async function freeDiskBytes(): Promise<number | null> {
 export async function modelsDiskBytes(): Promise<number> {
   if (!inTauri()) return 0;
   try {
-    return await invoke<number>('models_disk_bytes');
+    return await withTimeout(invoke<number>('models_disk_bytes'), 10_000, 'Disk use');
   } catch {
     return 0;
   }
@@ -75,11 +77,11 @@ function browserSettings(): Settings {
 
 export async function getSettings(): Promise<Settings> {
   if (!inTauri()) return browserSettings();
-  return invoke<Settings>('settings_get');
+  return withTimeout(invoke<Settings>('settings_get'), 5_000, 'Reading the settings');
 }
 
 export async function setSettings(patch: Settings): Promise<Settings> {
-  if (inTauri()) return invoke<Settings>('settings_set', { patch });
+  if (inTauri()) return withTimeout(invoke<Settings>('settings_set', { patch }), 5_000, 'Saving the settings');
   const all = { ...browserSettings(), ...patch };
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(all));
@@ -87,4 +89,10 @@ export async function setSettings(patch: Settings): Promise<Settings> {
     // Settings then live for this session only.
   }
   return all;
+}
+
+/** Opens the app data folder in Finder. */
+export async function openDataDir(): Promise<void> {
+  if (!inTauri()) throw new Error('Only in the Mac app.');
+  await withTimeout(invoke('open_data_dir'), 10_000, 'Opening the data folder');
 }

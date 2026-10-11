@@ -12,7 +12,8 @@ use backend::{Backend, Config, Status};
 use grammar::Grammar;
 use serde_json::{Map, Value};
 use std::path::PathBuf;
-use tauri::{AppHandle, Emitter, Manager, RunEvent};
+use tauri::window::Color;
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Theme, WebviewWindow, WebviewWindowBuilder};
 
 #[tauri::command]
 fn backend_status(backend: tauri::State<Backend>) -> Status {
@@ -52,8 +53,20 @@ fn settings_get(backend: tauri::State<Backend>) -> Map<String, Value> {
 }
 
 #[tauri::command]
-fn settings_set(backend: tauri::State<Backend>, grammar: tauri::State<Grammar>, patch: Map<String, Value>) -> Result<Map<String, Value>, String> {
+fn settings_set(
+    app: AppHandle,
+    backend: tauri::State<Backend>,
+    grammar: tauri::State<Grammar>,
+    patch: Map<String, Value>,
+) -> Result<Map<String, Value>, String> {
+    let theme_changed = patch.contains_key("theme");
     let all = settings::merge(&backend.config().app_data, patch)?;
+    if theme_changed {
+        let theme = settings::theme(&backend.config().app_data);
+        for window in app.webview_windows().values() {
+            apply_theme(window, theme);
+        }
+    }
     let keep_alive = settings::keep_alive(&backend.config().app_data);
     grammar.set_idle(grammar::idle_from_keep_alive(&keep_alive));
     backend.set_keep_alive(keep_alive);
@@ -102,6 +115,64 @@ fn grammar_check(grammar: tauri::State<'_, Grammar>, text: String, language: Str
     serde_json::from_str(&reply).map_err(|e| format!("LanguageTool sent invalid JSON: {e}"))
 }
 
+/// Opens the app data folder (models, LanguageTool, settings, logs) in Finder.
+#[tauri::command(async)]
+fn open_data_dir(backend: tauri::State<'_, Backend>) -> Result<(), String> {
+    let dir = backend.config().app_data;
+    let status = std::process::Command::new("/usr/bin/open").arg(&dir).status().map_err(|e| e.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("Finder could not open {}", dir.display()))
+    }
+}
+
+fn native_theme(theme: &str) -> Option<Theme> {
+    match theme {
+        "light" => Some(Theme::Light),
+        "dark" => Some(Theme::Dark),
+        _ => None,
+    }
+}
+
+/// Window background behind the page, same as the CSS --bg token.
+fn background(theme: Theme) -> Color {
+    match theme {
+        Theme::Dark => Color(0x11, 0x13, 0x17, 0xff),
+        _ => Color(0xf6, 0xf7, 0xf9, 0xff),
+    }
+}
+
+/// Native window appearance (title bar, prefers-color-scheme) and background follow the setting.
+fn apply_theme(window: &WebviewWindow, theme: &str) {
+    let _ = window.set_theme(native_theme(theme));
+    if let Ok(effective) = window.theme() {
+        let _ = window.set_background_color(Some(background(effective)));
+    }
+}
+
+/// Builds the main window from tauri.conf.json ("create": false) with the stored theme, so the first
+/// paint already has the right colours.
+fn create_main_window(app: &AppHandle, app_data: &std::path::Path) -> tauri::Result<()> {
+    let theme = settings::theme(app_data);
+    let config = app.config().app.windows.iter().find(|w| w.label == "main").cloned().unwrap_or_default();
+    let builder = WebviewWindowBuilder::from_config(app, &config)?
+        .theme(native_theme(theme))
+        .initialization_script(settings::theme_script(theme));
+    // Debug builds: LIX_WINDOW_SIZE=800x600 for screenshots.
+    #[cfg(debug_assertions)]
+    let builder = match std::env::var("LIX_WINDOW_SIZE").ok().and_then(|v| {
+        let (w, h) = v.split_once('x')?;
+        Some((w.parse::<f64>().ok()?, h.parse::<f64>().ok()?))
+    }) {
+        Some((w, h)) => builder.inner_size(w, h),
+        None => builder,
+    };
+    let window = builder.build()?;
+    apply_theme(&window, theme);
+    Ok(())
+}
+
 fn app_data_dir(app: &AppHandle) -> PathBuf {
     #[cfg(debug_assertions)]
     if let Ok(dir) = std::env::var("LIX_APP_DATA") {
@@ -139,6 +210,7 @@ pub fn run() {
     let builder = tauri::Builder::default().setup(|app| {
         let handle = app.handle();
         let app_data = app_data_dir(handle);
+        create_main_window(handle, &app_data)?;
         let backend = Backend::new(Config {
             bin: ollama_bin(handle),
             keep_alive: settings::keep_alive(&app_data),
@@ -177,7 +249,9 @@ pub fn run() {
         grammar_disk_bytes,
         grammar_ensure_running,
         grammar_check,
+        open_data_dir,
         debug::debug_autotest,
+        debug::debug_screen,
         debug::debug_log
     ]);
     #[cfg(not(debug_assertions))]
@@ -196,7 +270,8 @@ pub fn run() {
         grammar_remove,
         grammar_disk_bytes,
         grammar_ensure_running,
-        grammar_check
+        grammar_check,
+        open_data_dir
     ]);
 
     builder

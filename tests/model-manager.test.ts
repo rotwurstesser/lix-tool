@@ -193,4 +193,16 @@ describe('ModelManager', () => {
     vi.stubGlobal('fetch', async () => Response.json({ models: [] }));
     expect(await new ModelManager('http://x').isInstalled()).toBe(false);
   });
+
+  it('deletes the model through /api/delete and accepts a missing model', async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 404 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await new ModelManager('http://x/').remove();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://x/api/delete',
+      expect.objectContaining({ method: 'DELETE', body: JSON.stringify({ model: MODEL }) }),
+    );
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 500 }));
+    expect(await new ModelManager('http://x').remove().catch((e) => e)).toBeInstanceOf(PullError);
+  });
 });

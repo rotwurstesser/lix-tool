@@ -172,6 +172,22 @@ export class ModelManager {
     return (data.models ?? []).some((m) => sameModel(m.name, this.model) || sameModel(m.model, this.model));
   }
 
+  /** Deletes the model files, so the next pull downloads every part again. A missing model is fine. */
+  async remove(): Promise<void> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/api/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: this.model }),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (err) {
+      throw new PullError('backend', String(err));
+    }
+    if (!res.ok && res.status !== 404) throw new PullError('backend', `HTTP ${res.status}`);
+  }
+
   /** Pulls the model. Cancel with `signal`; pulling again resumes where it stopped. */
   async pull(onProgress: (p: PullProgress) => void, signal?: AbortSignal): Promise<void> {
     const ctrl = new AbortController();

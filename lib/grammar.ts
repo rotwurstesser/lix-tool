@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { HttpLanguageTool, LanguageToolChecker, LT_LANGUAGE, type LtMatch, type LtTransport } from './generate/languagetool';
-import { inTauri } from './tauri';
+import { inTauri, withTimeout } from './tauri';
 
 // Bridge to the optional grammar checker (src-tauri/src/grammar.rs). Outside Tauri (next dev in a
 // browser) LanguageTool is used only when NEXT_PUBLIC_LT_URL points at a running server.
@@ -27,13 +27,13 @@ const MISSING: GrammarStatus = { install: 'missing', message: '', progress: null
 
 export async function grammarStatus(): Promise<GrammarStatus> {
   if (!inTauri()) return BROWSER_LT ? { ...MISSING, install: 'installed' } : MISSING;
-  return invoke<GrammarStatus>('grammar_status');
+  return withTimeout(invoke<GrammarStatus>('grammar_status'), 5_000, 'Grammar checker status');
 }
 
 /** Starts the download; follow it with onGrammarStatus. */
 export async function installGrammar(): Promise<GrammarStatus> {
   if (!inTauri()) return MISSING;
-  return invoke<GrammarStatus>('grammar_install');
+  return withTimeout(invoke<GrammarStatus>('grammar_install'), 10_000, 'Starting the download');
 }
 
 export async function cancelGrammarInstall(): Promise<void> {
@@ -43,12 +43,13 @@ export async function cancelGrammarInstall(): Promise<void> {
 /** Stops LanguageTool and deletes its files. */
 export async function removeGrammar(): Promise<GrammarStatus> {
   if (!inTauri()) return MISSING;
-  return invoke<GrammarStatus>('grammar_remove');
+  // Rust waits up to 10 s for LanguageTool to stop, then deletes the files.
+  return withTimeout(invoke<GrammarStatus>('grammar_remove'), 30_000, 'Removing LanguageTool');
 }
 
 export async function grammarDiskBytes(): Promise<number> {
   if (!inTauri()) return 0;
-  return invoke<number>('grammar_disk_bytes').catch(() => 0);
+  return withTimeout(invoke<number>('grammar_disk_bytes'), 10_000, 'Disk use').catch(() => 0);
 }
 
 /** Calls `cb` on every install status change. Returns the unsubscribe function. */
@@ -61,14 +62,20 @@ export async function onGrammarStatus(cb: (s: GrammarStatus) => void): Promise<(
 class TauriLanguageTool implements LtTransport {
   async check(text: string, signal?: AbortSignal): Promise<LtMatch[]> {
     signal?.throwIfAborted();
-    const reply = await invoke<{ matches: LtMatch[] }>('grammar_check', { text, language: LT_LANGUAGE });
+    // Rust limits the start (60 s) and the check (60 s); this outer limit only guards the bridge.
+    const reply = await withTimeout(
+      invoke<{ matches: LtMatch[] }>('grammar_check', { text, language: LT_LANGUAGE }),
+      150_000,
+      'Grammar check',
+    );
     signal?.throwIfAborted();
     return reply.matches;
   }
 }
 
-/** The loop's grammar checker when LanguageTool is installed, else undefined (model check). */
-export async function grammarChecker(): Promise<LanguageToolChecker | undefined> {
+/** The loop's grammar checker when LanguageTool is installed and on, else undefined (model check). */
+export async function grammarChecker(enabled = true): Promise<LanguageToolChecker | undefined> {
+  if (!enabled) return undefined;
   const status = await grammarStatus().catch(() => MISSING);
   if (status.install !== 'installed') return undefined;
   // Start the JVM now, while the model writes the draft. A start error shows up at the first check.

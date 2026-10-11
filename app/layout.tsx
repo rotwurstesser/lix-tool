@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Footer from "@/components/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LIX Text Generator",
+  title: "LIX Writer",
   description: "Generate texts with specific LIX readability scores using AI.",
 };
 
@@ -24,14 +23,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
-      >
-        <main className="flex-grow">
-          {children}
-        </main>
-        <Footer />
+    // The Rust side sets data-theme before React loads, so hydration sees an extra attribute.
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-bg text-fg`}>
+        {children}
       </body>
     </html>
   );

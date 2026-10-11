@@ -15,6 +15,7 @@ import {
 import { nextStep, type SetupEvent, type SetupStep } from '@/lib/setup';
 import { debugLog } from '@/lib/tauri';
 import { GRAMMAR_QUESTION, GrammarProgress, useGrammar } from './GrammarSetting';
+import { card as cardBase, primary, ProgressBar, secondary, Spinner } from './ui';
 
 interface SetupProps {
   baseUrl: string;
@@ -23,6 +24,8 @@ interface SetupProps {
   auto?: boolean;
   onDone: () => void;
   onBackendFailed: (message: string) => void;
+  /** Debug screenshots: show this download progress instead of starting one. */
+  debugDownload?: PullProgress;
 }
 
 type Download =
@@ -31,15 +34,13 @@ type Download =
   | { phase: 'paused' }
   | { phase: 'error'; message: string };
 
-const card = 'bg-white rounded-xl shadow-lg border border-gray-100 p-8 space-y-6';
-const primary =
-  'px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2';
-const secondary =
-  'px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400';
+const card = `${cardBase} p-6 sm:p-8 space-y-5`;
 
-export default function Setup({ baseUrl, initial, auto = false, onDone, onBackendFailed }: SetupProps) {
+export default function Setup({ baseUrl, initial, auto = false, onDone, onBackendFailed, debugDownload }: SetupProps) {
   const [step, setStep] = useState<SetupStep>(initial);
-  const [download, setDownload] = useState<Download>({ phase: 'idle' });
+  const [download, setDownload] = useState<Download>(
+    debugDownload ? { phase: 'running', progress: debugDownload } : { phase: 'idle' },
+  );
   const abortRef = useRef<AbortController | null>(null);
   const grammar = useGrammar();
   // Set by "Add": the step moves on once the install finishes.
@@ -143,17 +144,18 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
   useEffect(() => () => abortRef.current?.abort(), []);
 
   return (
-    <main className="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-bg py-10 sm:py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-xl mx-auto space-y-6">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight text-center">LIX Writer</h1>
+        <h1 className="text-3xl font-extrabold text-fg tracking-tight text-center">LIX Writer</h1>
+        <StepDots step={step} />
 
         {step === 'welcome' && (
           <section className={card}>
-            <h2 className="text-xl font-semibold text-gray-900">Welcome</h2>
-            <p className="text-gray-700">
+            <h2 className="text-xl font-semibold text-fg">Welcome</h2>
+            <p className="text-fg-muted">
               LIX Writer writes German children&apos;s texts at the reading level you choose, on this Mac.
             </p>
-            <p className="text-gray-700">Setup needs about 4.6 GB and an internet connection once.</p>
+            <p className="text-fg-muted">Setup needs about 4.6 GB and an internet connection once.</p>
             <button
               className={primary}
               autoFocus
@@ -169,10 +171,10 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
 
         {step === 'model' && (
           <section className={card} aria-live="polite">
-            <h2 className="text-xl font-semibold text-gray-900">Writing model</h2>
+            <h2 className="text-xl font-semibold text-fg">Writing model</h2>
             {download.phase === 'idle' && (
               <>
-                <p className="text-gray-700">The app needs its writing model (4.3 GB) before you can write texts.</p>
+                <p className="text-fg-muted">The app needs its writing model (4.3 GB) before you can write texts.</p>
                 <button className={primary} autoFocus onClick={startDownload}>
                   Download the writing model
                 </button>
@@ -180,20 +182,14 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
             )}
             {download.phase === 'running' && (
               <>
-                <p className="text-gray-800">{download.progress ? formatProgress(download.progress) : 'Checking disk space'}</p>
-                <div
-                  className="h-3 w-full bg-gray-200 rounded-full overflow-hidden"
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(download.progress?.percent ?? 0)}
-                >
-                  <div
-                    className="h-full bg-blue-600 transition-[width] duration-500"
-                    style={{ width: `${download.progress?.percent ?? 0}%` }}
-                  />
+                <div className="flex items-center gap-3">
+                  {download.progress?.percent == null && <Spinner />}
+                  <p className="text-fg-muted">
+                    {download.progress ? formatProgress(download.progress) : 'Checking disk space'}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between text-sm text-gray-500">
+                <ProgressBar percent={download.progress?.percent ?? 0} />
+                <div className="flex items-center justify-between text-sm text-fg-subtle">
                   <span>
                     {download.progress?.percent != null ? `${Math.floor(download.progress.percent)}%` : ''}
                   </span>
@@ -206,7 +202,7 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
             )}
             {download.phase === 'paused' && (
               <>
-                <p className="text-gray-700">Download stopped. It continues where it stopped.</p>
+                <p className="text-fg-muted">Download stopped. It continues where it stopped.</p>
                 <button className={primary} autoFocus onClick={startDownload}>
                   Continue download
                 </button>
@@ -214,7 +210,7 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
             )}
             {download.phase === 'error' && (
               <>
-                <p className="text-red-700">{download.message}</p>
+                <p className="text-danger">{download.message}</p>
                 <button className={primary} autoFocus onClick={startDownload}>
                   Try again
                 </button>
@@ -223,24 +219,43 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
           </section>
         )}
 
+        {step === 'grammar' && !grammar.status && (
+          <section className={card} aria-live="polite">
+            <h2 className="text-xl font-semibold text-fg">Grammar checker</h2>
+            {grammar.error ? (
+              <>
+                <p className="text-danger">{grammar.error}</p>
+                <button className={primary} autoFocus onClick={grammar.refresh}>
+                  Try again
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-3 text-fg-muted">
+                <Spinner /> Checking LanguageTool
+              </div>
+            )}
+          </section>
+        )}
+
         {step === 'grammar' && grammar.status && (
           <section className={card} aria-live="polite">
-            <h2 className="text-xl font-semibold text-gray-900">Grammar checker</h2>
+            <h2 className="text-xl font-semibold text-fg">Grammar checker</h2>
             {grammar.status.install === 'installing' ? (
               <GrammarProgress status={grammar.status} onCancel={grammar.cancel} />
             ) : grammar.status.install === 'installed' && !grammarRequested ? (
               <>
-                <p className="text-gray-700">LanguageTool is already installed.</p>
+                <p className="text-fg-muted">LanguageTool is already installed.</p>
                 <button className={primary} autoFocus onClick={() => go('grammarDone')}>
                   Continue
                 </button>
               </>
             ) : (
               <>
-                <p className="text-gray-700">{GRAMMAR_QUESTION}</p>
-                {grammar.status.install === 'failed' && <p className="text-red-700">{grammar.status.message}</p>}
+                <p className="text-fg-muted">{GRAMMAR_QUESTION}</p>
+                {grammar.status.install === 'failed' && <p className="text-danger">{grammar.status.message}</p>}
+                {grammar.error && <p className="text-danger">{grammar.error}</p>}
                 {grammar.status.install === 'missing' && grammar.status.message && (
-                  <p className="text-gray-500">{grammar.status.message}</p>
+                  <p className="text-fg-subtle">{grammar.status.message}</p>
                 )}
                 <div className="flex gap-3">
                   <button className={primary} autoFocus onClick={addGrammar}>
@@ -257,8 +272,8 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
 
         {step === 'ready' && (
           <section className={card}>
-            <h2 className="text-xl font-semibold text-gray-900">Ready</h2>
-            <p className="text-gray-700">
+            <h2 className="text-xl font-semibold text-fg">Ready</h2>
+            <p className="text-fg-muted">
               The writing model is installed{grammar.status?.install === 'installed' ? ', and LanguageTool checks the grammar' : ''}.
               The app now works without internet.
             </p>
@@ -269,5 +284,23 @@ export default function Setup({ baseUrl, initial, auto = false, onDone, onBacken
         )}
       </div>
     </main>
+  );
+}
+
+const STEP_ORDER: ReadonlyArray<SetupStep> = ['welcome', 'model', 'grammar', 'ready'];
+
+/** Where the user is in the four setup steps. */
+function StepDots({ step }: { step: SetupStep }) {
+  const at = STEP_ORDER.indexOf(step);
+  return (
+    <ol className="flex justify-center gap-2" aria-label={`Step ${at + 1} of ${STEP_ORDER.length}`}>
+      {STEP_ORDER.map((s, i) => (
+        <li
+          key={s}
+          className={`h-1.5 w-8 rounded-full ${i <= at ? 'bg-accent' : 'bg-line-strong'}`}
+          aria-current={i === at ? 'step' : undefined}
+        />
+      ))}
+    </ol>
   );
 }

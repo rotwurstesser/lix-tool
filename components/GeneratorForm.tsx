@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GenerationParams } from '@/types';
+import { card, focusRing } from './ui';
 
 interface GeneratorFormProps {
   onSubmit: (data: GenerationParams) => void;
@@ -24,7 +25,7 @@ const CHILDREN_TOPICS = [
 ];
 
 const inputClass =
-  'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors';
+  'w-full px-4 py-2 bg-surface text-fg placeholder:text-fg-subtle border border-line-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-accent transition-colors';
 
 export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
   const [topic, setTopic] = useState('');
@@ -46,14 +47,15 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+    <form onSubmit={handleSubmit} className={`${card} space-y-6 p-6 sm:p-8`}>
       <div className="space-y-2">
-        <label htmlFor="topic" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="topic" className="block text-sm font-medium text-fg-muted">
           Topic (German)
         </label>
         <input
           type="text"
           id="topic"
+          autoFocus
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           className={inputClass}
@@ -61,9 +63,9 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="space-y-2">
-          <label htmlFor="lix" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="lix" className="block text-sm font-medium text-fg-muted">
             Target LIX
           </label>
           <input
@@ -75,13 +77,13 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
             max="60"
             step="1"
             required
-            className={`${inputClass} text-center`}
+            className={inputClass}
           />
-          <p className="text-xs text-gray-500">Counted like the teacher sheet: the title counts too.</p>
+          <p className="text-xs text-fg-subtle">Counted like the teacher sheet: the title counts too.</p>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="sentences" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="sentences" className="block text-sm font-medium text-fg-muted">
             Number of Sentences
           </label>
           <input
@@ -97,7 +99,7 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="tolerance" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="tolerance" className="block text-sm font-medium text-fg-muted">
             Tolerance
           </label>
           <div className="flex items-center gap-4">
@@ -109,23 +111,20 @@ export default function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProp
               min="0.5"
               max="3"
               step="0.5"
-              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+              className="flex-1 cursor-pointer accent-accent"
             />
-            <span className="text-sm font-bold text-gray-900 w-12 text-center">±{tolerance}</span>
+            <span className="text-sm font-bold text-fg w-12 text-center">±{tolerance}</span>
           </div>
-          <p className="text-xs text-gray-500">Allowed LIX deviation from the target.</p>
+          <p className="text-xs text-fg-subtle">Allowed LIX deviation from the target.</p>
         </div>
       </div>
 
       <button
         type="submit"
         disabled={isLoading}
-        className={`w-full py-3 px-6 text-white font-semibold rounded-lg shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98] ${isLoading
-          ? 'bg-gray-400 cursor-not-allowed'
-          : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-          }`}
+        className={`w-full py-3 px-6 text-on-accent font-semibold rounded-lg transition-colors bg-accent hover:bg-accent-hover disabled:opacity-70 disabled:cursor-not-allowed ${focusRing}`}
       >
-        {isLoading ? 'Generating...' : 'Generate Text'}
+        {isLoading ? 'Generating…' : 'Generate text'}
       </button>
     </form>
   );

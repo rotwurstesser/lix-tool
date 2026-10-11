@@ -12,6 +12,8 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "LIX Writer",
         "width": 1100,
         "height": 800,

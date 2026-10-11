@@ -540,10 +540,18 @@ mod tests {
 
     #[test]
     fn taken_port_is_skipped() {
-        let first = free_port(FIRST_PORT + 50).unwrap();
-        let _hold = TcpListener::bind(("127.0.0.1", first)).unwrap();
-        let next = free_port(first).unwrap();
-        assert!(next > first);
+        // The OS picks a port and the test holds it from the start: no other process can take it
+        // between check and bind. Ports near the top would leave no room to scan upward.
+        let hold = loop {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            if listener.local_addr().unwrap().port() < u16::MAX - PORT_TRIES {
+                break listener;
+            }
+        };
+        let taken = hold.local_addr().unwrap().port();
+        assert!(!port_free(taken));
+        let next = free_port(taken).unwrap();
+        assert!(next > taken);
     }
 
     #[test]
