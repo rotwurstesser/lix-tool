@@ -27,7 +27,7 @@ LIX (Läsbarhetsindex) = words per sentence + percentage of long words (more tha
 
 ### Install
 
-1. Download `LIX Writer_0.1.0_aarch64.dmg` from the [latest release](https://github.com/rotwurstesser/lix-tool/releases/latest).
+1. Download `LIX.Writer_0.1.0_aarch64.dmg` from the [latest release](https://github.com/rotwurstesser/lix-tool/releases/latest).
 2. Double-click it. A window opens.
 3. Drag **LIX Writer** onto the **Applications** folder.
 4. Open **LIX Writer** from your Applications folder.

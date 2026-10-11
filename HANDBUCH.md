@@ -12,7 +12,7 @@ Alles läuft auf deinem Mac. Nach der Einrichtung braucht die App kein Internet 
 
 ## 2. Installieren
 
-1. Lade auf der [Download-Seite](https://github.com/rotwurstesser/lix-tool/releases/latest) die Datei `LIX Writer_0.1.0_aarch64.dmg` herunter.
+1. Lade auf der [Download-Seite](https://github.com/rotwurstesser/lix-tool/releases/latest) die Datei `LIX.Writer_0.1.0_aarch64.dmg` herunter.
 2. Doppelklicke die Datei. Ein Fenster geht auf.
 3. Ziehe **LIX Writer** in den Ordner **Programme** (Applications).
 4. Öffne **LIX Writer** im Ordner Programme.
