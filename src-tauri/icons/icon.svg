@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- App icon source: open book above "LIX". Letters are paths, so no font is needed. -->
+  <!-- Render: swift tools/render-icon.swift src-tauri/icons/icon.svg <out.png>, then npm run tauri icon <out.png>. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#1E40AF"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- Open book -->
+  <path d="M504 236 C430 200 330 196 246 218 L246 446 C330 426 430 430 504 466 Z" fill="#FFFFFF"/>
+  <path d="M520 236 C594 200 694 196 778 218 L778 446 C694 426 594 430 520 466 Z" fill="#FFFFFF"/>
+  <path d="M232 236 L232 470 C330 448 430 452 512 492 C594 452 694 448 792 470 L792 236 L778 236 L778 446 C694 426 594 430 520 466 L504 466 C430 430 330 426 246 446 L246 236 Z" fill="#FBBF24"/>
+  <!-- Text lines on the pages -->
+  <path d="M290 280 C350 268 420 272 470 290" fill="none" stroke="#BFDBFE" stroke-width="16" stroke-linecap="round"/>
+  <path d="M734 280 C674 268 604 272 554 290" fill="none" stroke="#BFDBFE" stroke-width="16" stroke-linecap="round"/>
+  <path d="M290 330 C350 318 420 322 470 340" fill="none" stroke="#BFDBFE" stroke-width="16" stroke-linecap="round"/>
+  <path d="M734 330 C674 318 604 322 554 340" fill="none" stroke="#BFDBFE" stroke-width="16" stroke-linecap="round"/>
+  <path d="M290 380 C350 368 420 372 470 390" fill="none" stroke="#BFDBFE" stroke-width="16" stroke-linecap="round"/>
+  <path d="M734 380 C674 368 604 372 554 390" fill="none" stroke="#BFDBFE" stroke-width="16" stroke-linecap="round"/>
+  <!-- L -->
+  <rect x="236" y="550" width="76" height="270" fill="#FFFFFF"/>
+  <rect x="236" y="744" width="180" height="76" fill="#FFFFFF"/>
+  <!-- I -->
+  <rect x="460" y="550" width="76" height="270" fill="#FFFFFF"/>
+  <!-- X -->
+  <polygon points="584,550 670,550 790,820 704,820" fill="#FFFFFF"/>
+  <polygon points="704,550 790,550 670,820 584,820" fill="#FFFFFF"/>
+</svg>
